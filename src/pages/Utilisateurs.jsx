@@ -14,8 +14,17 @@ export default function Utilisateurs() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("user");
   const [inviting, setInviting] = useState(false);
+  // null = vérification en cours. Si personne n'a encore le rôle "Admin" (cas d'un
+  // outil tout juste déployé), on ouvre l'accès pour permettre à quelqu'un de se
+  // nommer admin — sinon la page serait verrouillée sans aucun moyen d'y entrer.
+  const [aucunAdminEncore, setAucunAdminEncore] = useState(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    base44.entities.User.count({ role: "Admin" })
+      .then((n) => setAucunAdminEncore(n === 0))
+      .catch((e) => { console.error(e); setAucunAdminEncore(false); });
+  }, []);
 
   const load = async () => {
     try {
@@ -56,7 +65,17 @@ export default function Utilisateurs() {
     }
   };
 
-  if (currentUser?.role !== "Admin") {
+  if (loading || aucunAdminEncore === null) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gd-mist border-t-gd-blue" />
+      </div>
+    );
+  }
+
+  const autorise = currentUser?.role === "Admin" || aucunAdminEncore;
+
+  if (!autorise) {
     return (
       <div className="rounded-xl border border-dashed border-gd-mist/60 bg-white p-8 text-center text-sm text-muted-foreground">
         <Shield className="mx-auto h-8 w-8 text-gd-mist" />
@@ -101,10 +120,10 @@ export default function Utilisateurs() {
         </div>
 
         {/* Users list */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gd-mist border-t-gd-blue" />
-          </div>
+        {users.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-gd-mist/60 bg-white p-6 text-center text-xs text-muted-foreground">
+            Aucun utilisateur pour le moment.
+          </p>
         ) : (
           <div className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground">{users.length} utilisateur{users.length > 1 ? "s" : ""}</div>
@@ -119,11 +138,11 @@ export default function Utilisateurs() {
                 </div>
                 <StatutUser statut={u.statut || "En attente"} />
                 <select
-                  value={u.role || "user"}
+                  value={u.role || "Lecteur"}
                   onChange={(e) => updateUser(u, { role: e.target.value })}
                   className="h-9 rounded-lg border border-gd-mist/60 px-2 text-xs outline-none focus:border-gd-blue"
                 >
-                  {ROLES.map((r) => <option key={r} value={r === "Admin" ? "admin" : "user"}>{r}</option>)}
+                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
                 {u.statut !== "Validé" && (
                   <button onClick={() => updateUser(u, { statut: "Validé", date_validation: new Date().toISOString().split("T")[0] })} className="flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200">
