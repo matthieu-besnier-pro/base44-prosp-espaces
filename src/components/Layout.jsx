@@ -5,6 +5,7 @@ import {
   Building2,
   KanbanSquare,
   Map,
+  Route,
   LayoutDashboard,
   Megaphone,
   Upload,
@@ -25,6 +26,7 @@ const NAV_MOBILE = [
 ];
 
 const NAV_DESKTOP_EXTRA = [
+  { to: "/organiser-journee", label: "Organiser une journée", icon: Route },
   { to: "/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/campagnes", label: "Campagnes", icon: Megaphone },
   { to: "/import", label: "Import", icon: Upload },
