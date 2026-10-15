@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
+import ClientLink from "@/components/ClientLink";
 import { SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE } from "@/lib/crm-constants";
 import { toast } from "@/components/ui/use-toast";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from "react-leaflet";
@@ -236,7 +237,7 @@ export default function OrganiserJournee() {
                   <div key={c.id} className="flex items-center gap-2 rounded-xl border border-gd-mist/50 bg-white p-3 shadow-sm">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-semibold">{c.raison_sociale}</span>
+                        <ClientLink compte={c} className="truncate text-sm font-semibold" newTab />
                         <ScoreBadge score={c.score} />
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -288,7 +289,9 @@ export default function OrganiserJournee() {
                   <CircleMarker key={c.id} center={[c.latitude, c.longitude]} radius={7} pathOptions={{ color: "#2563eb", fillOpacity: 0.9 }}>
                     <Popup>
                       <div className="text-xs">
-                        <strong>{i + 1}. {c.raison_sociale}</strong><br />{c.ville}
+                        <strong>{i + 1}. </strong>
+                        <ClientLink compte={c} className="font-bold" newTab />
+                        <br />{c.ville}
                       </div>
                     </Popup>
                   </CircleMarker>
@@ -317,7 +320,7 @@ export default function OrganiserJournee() {
                       {i + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold">{c.raison_sociale}</div>
+                      <ClientLink compte={c} className="truncate text-sm font-semibold" newTab />
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <MapPin className="h-3 w-3" />
                         <span className="truncate">{c.ville || "—"}</span>

@@ -2,15 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import { STATUT_COULEUR } from "@/lib/crm-constants";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 export default function Carte() {
   const navigate = useNavigate();
   const [comptes, setComptes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -52,7 +51,12 @@ export default function Carte() {
                     <CircleMarker key={c.id} center={[c.latitude, c.longitude]} radius={6} pathOptions={{ color: `#${color === "slate" ? "94a3b8" : color === "blue" ? "3b82f6" : color === "cyan" ? "06b6d4" : color === "violet" ? "8b5cf6" : color === "amber" ? "f59e0b" : color === "emerald" ? "10b981" : color === "rose" ? "f43f5e" : "94a3b8"}`, fillOpacity: 0.8 }}>
                       <Popup>
                         <div className="text-xs">
-                          <strong>{c.raison_sociale}</strong>
+                          <button
+                            onClick={() => navigate(`/comptes/${c.id}`)}
+                            className="font-bold text-gd-blue hover:underline"
+                          >
+                            {c.raison_sociale}
+                          </button>
                           <br />
                           {c.ville} ({c.departement})
                           <br />
@@ -76,10 +80,10 @@ export default function Carte() {
                 </div>
               </div>
               {comptes.filter((c) => c.latitude && c.longitude).slice(0, 50).map((c) => (
-                <button key={c.id} onClick={() => setSelected(c)} className={`flex w-full items-center gap-2 rounded-lg border p-2.5 text-left ${selected?.id === c.id ? "border-gd-blue bg-gd-ice" : "border-gd-mist/40 bg-white hover:bg-gd-ice"}`}>
+                <button key={c.id} onClick={() => navigate(`/comptes/${c.id}`)} className="flex w-full items-center gap-2 rounded-lg border border-gd-mist/40 bg-white p-2.5 text-left hover:border-gd-blue/40 hover:bg-gd-ice">
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${(STATUT_COULEUR[c.statut] || STATUT_COULEUR["À qualifier"]).dot}`} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold">{c.raison_sociale}</div>
+                    <div className="truncate text-xs font-semibold text-gd-blue">{c.raison_sociale}</div>
                     <div className="truncate text-[11px] text-muted-foreground">{c.ville} ({c.departement})</div>
                   </div>
                 </button>

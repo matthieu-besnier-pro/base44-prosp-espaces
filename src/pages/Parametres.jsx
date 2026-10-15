@@ -1,9 +1,32 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import { Database, Bell, Palette, Info, Upload, Users } from "lucide-react";
 import ImportSection from "@/pages/Import";
 import UtilisateursSection from "@/pages/Utilisateurs";
 
 export default function Parametres() {
+  const [donnees, setDonnees] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [total, espacesVerts, collectivite] = await Promise.all([
+          base44.entities.Compte.count({}),
+          base44.entities.Compte.count({ famille: "Espaces verts" }),
+          base44.entities.Compte.count({ famille: "Collectivité" }),
+        ]);
+        setDonnees({ total, espacesVerts, collectivite });
+      } catch (e) { console.error(e); }
+    })();
+  }, []);
+
+  const donneesDesc = donnees
+    ? donnees.total > 0
+      ? `${donnees.total} prospect${donnees.total > 1 ? "s" : ""} importé${donnees.total > 1 ? "s" : ""} (${donnees.espacesVerts} espaces verts, ${donnees.collectivite} collectivités)`
+      : "Aucun prospect importé pour le moment"
+    : "Chargement…";
+
   return (
     <div className="animate-fade-in">
       <PageTitle subtitle="Configuration de l'application">Paramètres</PageTitle>
@@ -11,7 +34,7 @@ export default function Parametres() {
         <section>
           <h2 className="gd-title mb-3 text-sm text-gd-blue">Général</h2>
           <div className="space-y-3">
-            <SettingCard icon={Database} title="Données" desc="1 685 prospects importés (697 espaces verts, 988 collectivités)" />
+            <SettingCard icon={Database} title="Données" desc={donneesDesc} />
             <SettingCard icon={Bell} title="Relances automatiques" desc="Devis sans réponse à J+7, prospect A sans contact 60 jours, équipement à renouveler 6 mois" />
             <SettingCard icon={Palette} title="Charte Gonnin-Duris" desc="Bleu #01377D, jaune #FEB800, police Poppins" />
             <SettingCard icon={Info} title="À propos" desc="CRM Prospection Gonnin-Duris — Concessionnaire New Holland — Zone 16, 79, 86" />

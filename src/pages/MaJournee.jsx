@@ -1,65 +1,116 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
+import ClientLink from "@/components/ClientLink";
 import { Phone, MapPin, AlertCircle, Calendar, Sparkles, ChevronRight } from "lucide-react";
+import { endOfWeek, format } from "date-fns";
+import { fr } from "date-fns/locale";
 
-// DONNÉES D'EXEMPLE — seront remplacées par les vraies données au prochain lot
-const EXEMPLE_RETARDS = [
-  { id: "r1", nom: "Commune de Cognac", ville: "Cognac (16)", raison: "Rappel devis tondeuse", tel: "05 45 82 10 00", score: 78 },
-  { id: "r2", nom: "GAEC de Saint-Marc", ville: "Angoulême (16)", raison: "Relance épareuse", tel: "05 45 95 32 77", score: 65 },
-];
-
-const EXEMPLE_AUJOURDHUI = [
-  { id: "a1", nom: "Communauté d'agglo du Grand Angoulême", ville: "Angoulême (16)", raison: "RDV démo tracteur compact", tel: "05 45 61 88 10", heure: "10:30" },
-  { id: "a2", nom: "Marechal Élagage", ville: "Angoulême (16)", raison: "Appel de prospection", tel: null, score: 72 },
-];
-
-const EXEMPLE_RDV = [
-  { id: "rdv1", nom: "Communauté de communes de Vienne et Gartempe", ville: "Montmorillon (86)", date: "Jeu 16 oct", heure: "14:00", type: "Visite" },
-  { id: "rdv2", nom: "Paysagiste Durand", ville: "Niort (79)", date: "Ven 17 oct", heure: "09:00", type: "Démo" },
-];
-
-const EXEMPLE_SUGGESTIONS = [
-  { id: "s1", nom: "Commune de Bressuire", ville: "Bressuire (79)", raison: "Score élevé, non contacté", tel: "05 49 80 49 80", score: 85, potentiel: "A" },
-  { id: "s2", nom: "Centre équestre du Clain", ville: "Poitiers (86)", raison: "Parc à renouveler", tel: "05 49 88 12 00", score: 80, potentiel: "A" },
-  { id: "s3", nom: "Élagueurs Charente Services", ville: "Cognac (16)", raison: "Budget voté", tel: "05 45 32 14 00", score: 76, potentiel: "B" },
-];
+const toIso = (d) => format(d, "yyyy-MM-dd");
 
 export default function MaJournee() {
+  const [retards, setRetards] = useState([]);
+  const [aujourdhui, setAujourdhui] = useState([]);
+  const [rdvSemaine, setRdvSemaine] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const today = new Date();
+        const todayStr = toIso(today);
+        const weekEndStr = toIso(endOfWeek(today, { weekStartsOn: 1 }));
+
+        const [retardRes, aujourdhuiRes, semaineRes, suggestionsRes] = await Promise.all([
+          base44.entities.Tache.filter(
+            { statut: "À faire", echeance: { $lt: todayStr } },
+            { sort: "echeance", limit: 20 }
+          ),
+          base44.entities.Tache.filter(
+            { statut: "À faire", echeance: todayStr },
+            { limit: 20 }
+          ),
+          base44.entities.Tache.filter(
+            { statut: "À faire", echeance: { $gt: todayStr, $lte: weekEndStr } },
+            { sort: "echeance", limit: 30 }
+          ),
+          base44.entities.Compte.filter(
+            { statut: { $ne: "Client" } },
+            { sort: "-score", limit: 15, fields: ["raison_sociale", "ville", "departement", "statut", "potentiel", "score", "telephone_1"] }
+          ),
+        ]);
+
+        const retardItems = retardRes.items || retardRes;
+        const aujourdhuiItems = aujourdhuiRes.items || aujourdhuiRes;
+        const semaineItems = (semaineRes.items || semaineRes).filter((t) => t.type === "Visite" || t.type === "Démo");
+
+        const ids = [...new Set([...retardItems, ...aujourdhuiItems, ...semaineItems].map((t) => t.compte_id).filter(Boolean))];
+        const comptes = await Promise.all(ids.map((id) => base44.entities.Compte.get(id).catch(() => null)));
+        const comptesById = {};
+        comptes.forEach((c) => { if (c) comptesById[c.id] = c; });
+
+        setRetards(retardItems.map((t) => ({ tache: t, compte: comptesById[t.compte_id] })));
+        setAujourdhui(aujourdhuiItems.map((t) => ({ tache: t, compte: comptesById[t.compte_id] })));
+        setRdvSemaine(semaineItems.map((t) => ({ tache: t, compte: comptesById[t.compte_id] })));
+
+        const suggestionsItems = (suggestionsRes.items || suggestionsRes)
+          .filter((c) => !["Perdu", "Hors cible"].includes(c.statut))
+          .slice(0, 5);
+        setSuggestions(suggestionsItems);
+      } catch (e) {
+        console.error(e);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const dateDuJour = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gd-mist border-t-gd-blue" />
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
-      <PageTitle subtitle="Jeudi 15 octobre 2026">Ma journée</PageTitle>
+      <PageTitle subtitle={dateDuJour.charAt(0).toUpperCase() + dateDuJour.slice(1)}>Ma journée</PageTitle>
 
       <div className="space-y-5 p-4 lg:max-w-5xl lg:p-8">
-        {/* En retard */}
-        <Section
-          icon={AlertCircle}
-          title="En retard"
-          color="gd-danger"
-          count={EXEMPLE_RETARDS.length}
-        >
-          {EXEMPLE_RETARDS.map((t) => (
-            <TaskRow key={t.id} t={t} urgent />
-          ))}
+        <Section icon={AlertCircle} title="En retard" color="gd-danger" count={retards.length}>
+          {retards.length === 0 ? (
+            <EmptyRow text="Aucune tâche en retard, bravo !" />
+          ) : (
+            retards.map(({ tache, compte }) => <TaskRow key={tache.id} tache={tache} compte={compte} urgent />)
+          )}
         </Section>
 
-        {/* Aujourd'hui */}
-        <Section icon={Calendar} title="Aujourd'hui" count={EXEMPLE_AUJOURDHUI.length}>
-          {EXEMPLE_AUJOURDHUI.map((t) => (
-            <TaskRow key={t.id} t={t} />
-          ))}
+        <Section icon={Calendar} title="Aujourd'hui" count={aujourdhui.length}>
+          {aujourdhui.length === 0 ? (
+            <EmptyRow text="Rien de prévu aujourd'hui" />
+          ) : (
+            aujourdhui.map(({ tache, compte }) => <TaskRow key={tache.id} tache={tache} compte={compte} />)
+          )}
         </Section>
 
-        {/* RDV de la semaine */}
-        <Section icon={MapPin} title="RDV de la semaine" count={EXEMPLE_RDV.length}>
-          {EXEMPLE_RDV.map((t) => (
-            <RdvRow key={t.id} t={t} />
-          ))}
+        <Section icon={MapPin} title="RDV de la semaine" count={rdvSemaine.length}>
+          {rdvSemaine.length === 0 ? (
+            <EmptyRow text="Pas de RDV planifié cette semaine" />
+          ) : (
+            rdvSemaine.map(({ tache, compte }) => <RdvRow key={tache.id} tache={tache} compte={compte} />)
+          )}
         </Section>
 
-        {/* Suggestions */}
-        <Section icon={Sparkles} title="Suggestions IA" count={EXEMPLE_SUGGESTIONS.length}>
-          {EXEMPLE_SUGGESTIONS.map((t) => (
-            <SuggestionRow key={t.id} t={t} />
-          ))}
+        <Section icon={Sparkles} title="Suggestions IA" count={suggestions.length}>
+          {suggestions.length === 0 ? (
+            <EmptyRow text="Importez votre fichier de prospects pour obtenir des suggestions" />
+          ) : (
+            suggestions.map((c) => <SuggestionRow key={c.id} compte={c} />)
+          )}
         </Section>
       </div>
     </div>
@@ -81,30 +132,35 @@ function Section({ icon: Icon, title, color, count, children }) {
   );
 }
 
-function TaskRow({ t, urgent }) {
+function EmptyRow({ text }) {
+  return <p className="px-4 py-6 text-center text-xs text-muted-foreground">{text}</p>;
+}
+
+function TaskRow({ tache, compte, urgent }) {
+  if (!compte) return null;
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-foreground">{t.nom}</span>
-          {t.heure && <span className="shrink-0 text-xs font-medium text-gd-blue">{t.heure}</span>}
+          <ClientLink compte={compte} className="truncate text-sm font-semibold text-foreground" />
+          {tache.heure && <span className="shrink-0 text-xs font-medium text-gd-blue">{tache.heure}</span>}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3" />
-          <span className="truncate">{t.ville}</span>
+          <span className="truncate">{compte.ville || "—"}</span>
           <span className="text-slate-300">·</span>
-          <span className="truncate">{t.raison}</span>
+          <span className="truncate">{tache.titre}</span>
         </div>
       </div>
-      {t.score != null && (
+      {compte.score != null && (
         <div className="hidden shrink-0 rounded-md bg-gd-ice px-2 py-1 text-xs font-bold text-gd-blue sm:block">
-          {t.score}
+          {compte.score}
         </div>
       )}
-      {t.tel ? (
+      {compte.telephone_1 ? (
         <a
-          href={`tel:${t.tel.replace(/\s/g, "")}`}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gd-blue px-3 py-2 text-xs font-semibold text-white active:scale-95"
+          href={`tel:${compte.telephone_1.replace(/\s/g, "")}`}
+          className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white active:scale-95 ${urgent ? "bg-gd-danger" : "bg-gd-blue"}`}
         >
           <Phone className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Appeler</span>
@@ -118,22 +174,28 @@ function TaskRow({ t, urgent }) {
   );
 }
 
-function RdvRow({ t }) {
+function RdvRow({ tache, compte }) {
+  if (!compte) return null;
+  const date = new Date(`${tache.echeance}T00:00:00`);
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="flex w-12 shrink-0 flex-col items-center rounded-lg bg-gd-ice py-1.5">
-        <span className="text-[10px] font-medium text-muted-foreground">{t.date.split(" ")[0]}</span>
-        <span className="text-sm font-bold text-gd-blue">{t.date.split(" ")[1]}</span>
+        <span className="text-[10px] font-medium text-muted-foreground">{format(date, "EEE", { locale: fr })}</span>
+        <span className="text-sm font-bold text-gd-blue">{format(date, "d MMM", { locale: fr })}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold">{t.nom}</div>
+        <ClientLink compte={compte} className="truncate text-sm font-semibold" />
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3" />
-          <span className="truncate">{t.ville}</span>
+          <span className="truncate">{compte.ville || "—"}</span>
+          {tache.heure && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span>{tache.heure}</span>
+            </>
+          )}
           <span className="text-slate-300">·</span>
-          <span>{t.heure}</span>
-          <span className="text-slate-300">·</span>
-          <span className="font-medium text-gd-blue">{t.type}</span>
+          <span className="font-medium text-gd-blue">{tache.type}</span>
         </div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
@@ -141,7 +203,7 @@ function RdvRow({ t }) {
   );
 }
 
-function SuggestionRow({ t }) {
+function SuggestionRow({ compte }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gd-yellow/15 text-gd-yellow">
@@ -149,24 +211,28 @@ function SuggestionRow({ t }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold">{t.nom}</span>
-          <span className="rounded bg-gd-yellow px-1.5 py-0.5 text-[10px] font-bold text-gd-black">
-            {t.potentiel}
-          </span>
+          <ClientLink compte={compte} className="truncate text-sm font-semibold" />
+          {compte.potentiel && (
+            <span className="rounded bg-gd-yellow px-1.5 py-0.5 text-[10px] font-bold text-gd-black">
+              {compte.potentiel}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3" />
-          <span className="truncate">{t.ville}</span>
+          <span className="truncate">{compte.ville || "—"}</span>
           <span className="text-slate-300">·</span>
-          <span className="truncate">{t.raison}</span>
+          <span className="truncate">{compte.statut || "À qualifier"}</span>
         </div>
       </div>
-      <div className="hidden shrink-0 rounded-md bg-gd-ice px-2 py-1 text-xs font-bold text-gd-blue sm:block">
-        {t.score}
-      </div>
-      {t.tel ? (
+      {compte.score != null && (
+        <div className="hidden shrink-0 rounded-md bg-gd-ice px-2 py-1 text-xs font-bold text-gd-blue sm:block">
+          {compte.score}
+        </div>
+      )}
+      {compte.telephone_1 ? (
         <a
-          href={`tel:${t.tel.replace(/\s/g, "")}`}
+          href={`tel:${compte.telephone_1.replace(/\s/g, "")}`}
           className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gd-blue px-3 py-2 text-xs font-semibold text-white active:scale-95"
         >
           <Phone className="h-3.5 w-3.5" />

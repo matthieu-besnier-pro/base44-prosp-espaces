@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import ClientLink from "@/components/ClientLink";
 import { TYPES_INTERACTION, RESULTATS_INTERACTION } from "@/lib/crm-constants";
 import { Search, X, Mic, Phone, Check } from "lucide-react";
 
@@ -148,7 +149,7 @@ export default function SaisieExpress({ open, onClose, presetCompteId }) {
         ) : (
           <div className="space-y-4">
             <div className="rounded-lg bg-gd-ice p-3">
-              <div className="text-sm font-semibold">{selected.raison_sociale}</div>
+              <ClientLink compte={selected} className="text-sm font-semibold" newTab />
               <div className="text-xs text-muted-foreground">{selected.ville} ({selected.departement})</div>
               {selected.telephone_1 && (
                 <a href={`tel:${selected.telephone_1.replace(/\s/g, "")}`} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-gd-blue">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
+import ClientLink from "@/components/ClientLink";
 import { toast } from "@/components/ui/use-toast";
 import { TYPES_TACHE, PRIORITES } from "@/lib/crm-constants";
 import { downloadIcs } from "@/lib/crm-helpers";
@@ -157,9 +158,12 @@ function JourColonne({ day, taches, comptesById, onExport }) {
                 </div>
                 <div className="mt-1 truncate text-sm font-semibold">{t.titre}</div>
                 {c && (
-                  <div className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-                    <MapPin className="h-3 w-3 shrink-0" /> {c.ville || "—"}
-                  </div>
+                  <>
+                    <ClientLink compte={c} className="block text-xs font-medium text-gd-blue" />
+                    <div className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" /> {c.ville || "—"}
+                    </div>
+                  </>
                 )}
                 {c?.telephone_1 && (
                   <a href={`tel:${c.telephone_1.replace(/\s/g, "")}`} className="mt-1.5 flex items-center justify-center gap-1.5 rounded-md bg-gd-ice py-1.5 text-[11px] font-semibold text-gd-blue active:scale-95">
