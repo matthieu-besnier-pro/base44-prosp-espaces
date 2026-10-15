@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
@@ -22,6 +22,8 @@ export default function Comptes() {
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
+  const [rechercheTel, setRechercheTel] = useState({ actif: false, fait: 0, total: 0, succes: 0 });
+  const abortTelRef = useRef(false);
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({
@@ -89,6 +91,86 @@ export default function Comptes() {
 
   const handlePhoneFound = (id, telephone) => {
     setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, telephone_1: telephone } : c)));
+  };
+
+  // Requête de base (famille/segment/département/statut/potentiel/recherche), sans la
+  // clause $exists sur telephone_1 : on filtre "sans téléphone" côté client à la place
+  // (un $exists sur un champ non-string s'est avéré peu fiable sur cette base — par
+  // prudence on évite de s'y fier aussi ici pour la recherche IA en masse).
+  const buildQuerySansExists = () => {
+    const q = {};
+    if (filters.famille) q.famille = filters.famille;
+    if (filters.segment) q.segment = filters.segment;
+    if (filters.departement) q.departement = filters.departement;
+    if (filters.statut) q.statut = filters.statut;
+    if (filters.potentiel) q.potentiel = filters.potentiel;
+    if (search.trim().length >= 2) {
+      q.$or = [
+        { raison_sociale: { $regex: search.trim(), $options: "i" } },
+        { ville: { $regex: search.trim(), $options: "i" } },
+        { siren: { $regex: search.trim(), $options: "i" } },
+      ];
+    }
+    return q;
+  };
+
+  const lancerRechercheTelephones = async () => {
+    abortTelRef.current = false;
+    setRechercheTel({ actif: true, fait: 0, total: 0, succes: 0 });
+    try {
+      let cursor;
+      let tous = [];
+      const q = buildQuerySansExists();
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const page = await base44.entities.Compte.filter(q, {
+          limit: 200,
+          cursor,
+          fields: ["raison_sociale", "adresse", "code_postal", "ville", "departement", "segment", "telephone_1"],
+        });
+        const items = page.items || page;
+        tous = tous.concat(items);
+        if (!page.has_more || !page.next_cursor) break;
+        cursor = page.next_cursor;
+      }
+
+      const aTraiter = tous.filter((c) => !c.telephone_1);
+      setRechercheTel((g) => ({ ...g, total: aTraiter.length }));
+      if (aTraiter.length === 0) {
+        toast({ title: "Rien à chercher", description: "Tous les clients filtrés ont déjà un téléphone." });
+        setRechercheTel({ actif: false, fait: 0, total: 0, succes: 0 });
+        return;
+      }
+
+      const LOT = 3;
+      let fait = 0;
+      let succes = 0;
+      for (let i = 0; i < aTraiter.length; i += LOT) {
+        if (abortTelRef.current) break;
+        const lot = aTraiter.slice(i, i + LOT);
+        await Promise.all(lot.map(async (c) => {
+          const { telephone } = await rechercherTelephoneIA(c);
+          if (telephone) {
+            try {
+              await base44.entities.Compte.update(c.id, { telephone_1: telephone });
+              succes++;
+              handlePhoneFound(c.id, telephone);
+            } catch (e) { console.error("[recherche téléphone IA] échec de l'enregistrement", c.raison_sociale, e); }
+          }
+          fait++;
+        }));
+        setRechercheTel({ actif: true, fait, total: aTraiter.length, succes });
+      }
+
+      toast({
+        title: abortTelRef.current ? "Recherche interrompue" : "Recherche terminée",
+        description: `${succes}/${fait} numéro${fait > 1 ? "s" : ""} trouvé${succes > 1 ? "s" : ""}.`,
+      });
+    } catch (e) {
+      console.error("[recherche téléphone IA] erreur générale", e);
+      toast({ title: "Erreur", description: e.message || "La recherche a échoué.", variant: "destructive" });
+    }
+    setRechercheTel((g) => ({ ...g, actif: false }));
   };
 
   const handleExport = () => {
@@ -169,6 +251,37 @@ export default function Comptes() {
               {activeFilterCount > 0 && (
                 <button onClick={() => setFilters({ famille: "", segment: "", departement: "", statut: "", potentiel: "", sansTel: false, jamaisContacte: false })} className="flex items-center gap-1 text-sm font-medium text-gd-danger">
                   <X className="h-3.5 w-3.5" /> Réinitialiser
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 border-t border-gd-mist/30 pt-3">
+              {rechercheTel.actif ? (
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-gd-blue">
+                      <Sparkles className="h-3.5 w-3.5" /> Recherche IA en cours…
+                    </span>
+                    <button onClick={() => { abortTelRef.current = true; }} className="text-slate-400 hover:text-gd-danger" title="Arrêter">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-gd-ice">
+                    <div
+                      className="h-full rounded-full bg-gd-blue transition-all"
+                      style={{ width: `${rechercheTel.total > 0 ? Math.round((rechercheTel.fait / rechercheTel.total) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    {rechercheTel.fait}/{rechercheTel.total} traités · {rechercheTel.succes} trouvés
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={lancerRechercheTelephones}
+                  className="flex items-center gap-1.5 text-xs font-medium text-gd-blue hover:underline"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Rechercher avec l'IA tous les numéros manquants (selon les filtres ci-dessus)
                 </button>
               )}
             </div>

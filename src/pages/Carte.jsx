@@ -19,6 +19,25 @@ function dotColorHex(statut) {
   return `#${DOT_HEX[key] || DOT_HEX.slate}`;
 }
 
+// Le filtre `{ latitude: { $exists: ... } }` s'est avéré ne retourner aucun
+// résultat dans un sens comme dans l'autre sur ce champ numérique (constaté en
+// conditions réelles : "0 géolocalisés" ET "rien à géolocaliser" en même temps).
+// Par sécurité, on récupère donc tous les comptes et on filtre côté client
+// plutôt que de faire confiance à cet opérateur pour latitude/longitude.
+async function recupererTousLesComptes(fields) {
+  let cursor;
+  let tous = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const page = await base44.entities.Compte.filter({}, { limit: 200, cursor, fields });
+    const items = page.items || page;
+    tous = tous.concat(items);
+    if (!page.has_more || !page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+  return tous;
+}
+
 export default function Carte() {
   const navigate = useNavigate();
   const [comptes, setComptes] = useState([]);
@@ -30,11 +49,10 @@ export default function Carte() {
   const chargerComptes = async () => {
     setLoading(true);
     try {
-      const res = await base44.entities.Compte.filter(
-        { latitude: { $exists: true } },
-        { limit: 500, fields: ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"] }
+      const tous = await recupererTousLesComptes(
+        ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"]
       );
-      setComptes(res.items || res);
+      setComptes(tous.filter((c) => c.latitude && c.longitude));
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -69,23 +87,10 @@ export default function Carte() {
     abortRef.current = false;
     setGeocodage({ actif: true, fait: 0, total: 0, succes: 0 });
     try {
-      let cursor;
-      let aTraiter = [];
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const page = await base44.entities.Compte.filter(
-          { latitude: { $exists: false } },
-          {
-            limit: 200,
-            cursor,
-            fields: ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel"],
-          }
-        );
-        const items = page.items || page;
-        aTraiter = aTraiter.concat(items);
-        if (!page.has_more || !page.next_cursor) break;
-        cursor = page.next_cursor;
-      }
+      const tous = await recupererTousLesComptes(
+        ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel", "latitude", "longitude"]
+      );
+      const aTraiter = tous.filter((c) => !c.latitude || !c.longitude);
 
       setGeocodage((g) => ({ ...g, total: aTraiter.length }));
       if (aTraiter.length === 0) {

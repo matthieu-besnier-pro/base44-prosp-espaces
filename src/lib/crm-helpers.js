@@ -173,15 +173,24 @@ export function ouvrirWaze(points) {
 // et renvoie { telephone, source } — telephone est null si rien de fiable n'a été trouvé.
 export async function rechercherTelephoneIA(compte) {
   const adresse = [compte.adresse, compte.code_postal, compte.ville].filter(Boolean).join(" ");
+  const nomsAlternatifs = {
+    Commune: `"Mairie de ${compte.ville || compte.raison_sociale}"`,
+    Intercommunalité: `"Communauté de communes ${compte.ville || ""}" ou le nom de l'intercommunalité`,
+    Syndicat: `le nom du syndicat suivi de "mairie" ou "intercommunalité" du secteur`,
+    Département: `"Conseil départemental de ${compte.departement || ""}"`,
+  }[compte.segment];
+
   try {
     const res = await base44.integrations.Core.InvokeLLM({
       prompt: `Cherche sur internet (Google, Pages Jaunes, l'annuaire des entreprises, le site officiel de l'organisme, un site de mairie si c'est une collectivité, etc.) le numéro de téléphone fixe professionnel de cet organisme en France :
 
-Nom : ${compte.raison_sociale || ""}
+Nom (tel qu'enregistré, parfois en majuscules ou abrégé) : ${compte.raison_sociale || ""}
 Adresse : ${adresse || "non précisée"}
 Département : ${compte.departement || "non précisé"}
+Type d'organisme : ${compte.segment || "non précisé"}
+${nomsAlternatifs ? `Essaie aussi cette formulation de recherche, souvent plus efficace pour ce type d'organisme : ${nomsAlternatifs}.` : ""}
 
-Utilise activement les résultats de recherche internet fournis pour répondre, ne te contente pas de tes connaissances générales. Donne le meilleur numéro trouvé qui correspond à cet organisme précis (et pas un homonyme ou un autre établissement du même groupe), au format français "0X XX XX XX XX". Mets trouve à false uniquement si aucun numéro plausible n'apparaît dans les résultats de recherche.`,
+Le nom est parfois stocké de façon brute ou incomplète (ex. majuscules, abréviations) : reformule la recherche avec le nom usuel le plus probable si la recherche littérale ne donne rien. Utilise activement les résultats de recherche internet fournis pour répondre, ne te contente pas de tes connaissances générales. Donne le meilleur numéro trouvé qui correspond à cet organisme précis (et pas un homonyme ou un autre établissement du même groupe), au format français "0X XX XX XX XX". Mets trouve à false uniquement si aucun numéro plausible n'apparaît dans les résultats de recherche après ces reformulations.`,
       add_context_from_internet: true,
       response_json_schema: {
         type: "object",
