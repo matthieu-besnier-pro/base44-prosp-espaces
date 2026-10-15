@@ -84,3 +84,61 @@ export function deptLabel(code) {
   const d = DEPARTEMENTS.find((x) => x.code === code);
   return d ? `${d.code} ${d.nom}` : code;
 }
+
+function icsEscape(text) {
+  return String(text || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
+}
+
+const pad2 = (n) => String(n).padStart(2, "0");
+const icsDateTime = (d) => `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(d.getHours())}${pad2(d.getMinutes())}00`;
+const icsDate = (d) => `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`;
+
+// Construit un fichier .ics (RFC 5545) à partir d'une liste de créneaux/RDV.
+// event: { uid, date: "yyyy-MM-dd", heure?: "HH:MM", dureeMinutes?, titre, lieu?, description? }
+export function buildIcsCalendar(events) {
+  const dtstamp = `${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Gonnin-Duris//Prospection CRM//FR", "CALSCALE:GREGORIAN"];
+
+  events.forEach((ev) => {
+    lines.push("BEGIN:VEVENT");
+    lines.push(`UID:${ev.uid}@gonnin-duris-crm`);
+    lines.push(`DTSTAMP:${dtstamp}`);
+
+    if (ev.heure) {
+      const [h, m] = ev.heure.split(":");
+      const start = new Date(`${ev.date}T${pad2(h || 0)}:${pad2(m || 0)}:00`);
+      const end = new Date(start.getTime() + (ev.dureeMinutes || 60) * 60000);
+      lines.push(`DTSTART:${icsDateTime(start)}`);
+      lines.push(`DTEND:${icsDateTime(end)}`);
+    } else {
+      const start = new Date(`${ev.date}T00:00:00`);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      lines.push(`DTSTART;VALUE=DATE:${icsDate(start)}`);
+      lines.push(`DTEND;VALUE=DATE:${icsDate(end)}`);
+    }
+
+    lines.push(`SUMMARY:${icsEscape(ev.titre)}`);
+    if (ev.lieu) lines.push(`LOCATION:${icsEscape(ev.lieu)}`);
+    if (ev.description) lines.push(`DESCRIPTION:${icsEscape(ev.description)}`);
+    lines.push("END:VEVENT");
+  });
+
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+
+export function downloadIcs(filename, events) {
+  const content = buildIcsCalendar(events);
+  const blob = new Blob([content], { type: "text/calendar;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".ics") ? filename : `${filename}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

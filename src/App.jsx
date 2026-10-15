@@ -13,6 +13,7 @@ import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import MaJournee from '@/pages/MaJournee';
+import Calendrier from '@/pages/Calendrier';
 import OrganiserJournee from '@/pages/OrganiserJournee';
 import Comptes from '@/pages/Comptes';
 import FicheCompte from '@/pages/FicheCompte';
@@ -50,6 +51,7 @@ const AuthenticatedApp = () => {
         <Route element={<Layout />}>
           <Route path="/" element={<TableauDeBord />} />
           <Route path="/ma-journee" element={<MaJournee />} />
+          <Route path="/calendrier" element={<Calendrier />} />
           <Route path="/organiser-journee" element={<OrganiserJournee />} />
           <Route path="/comptes" element={<Comptes />} />
           <Route path="/comptes/:id" element={<FicheCompte />} />

@@ -2,6 +2,7 @@ import { NavLink, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import {
   CalendarCheck,
+  CalendarDays,
   Building2,
   Map,
   Route,
@@ -17,6 +18,7 @@ import SaisieExpress from "@/components/SaisieExpress";
 const NAV_MOBILE = [
   { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/ma-journee", label: "Ma journée", icon: CalendarCheck },
+  { to: "/calendrier", label: "Calendrier", icon: CalendarDays },
   { to: "/comptes", label: "Comptes", icon: Building2 },
   { to: "/carte", label: "Carte", icon: Map },
 ];

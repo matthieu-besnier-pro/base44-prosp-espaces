@@ -22,6 +22,14 @@
       "type": "string",
       "format": "date"
     },
+    "heure": {
+      "type": "string",
+      "description": "Heure du créneau (RDV), format HH:MM"
+    },
+    "duree_minutes": {
+      "type": "number",
+      "description": "Durée estimée du créneau en minutes"
+    },
     "priorite": {
       "type": "string",
       "enum": [
