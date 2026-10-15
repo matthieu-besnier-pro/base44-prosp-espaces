@@ -3,11 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { StatutBadge, PotentielBadge, ScoreBadge, SegmentBadge } from "@/components/badges";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { toast } from "@/components/ui/use-toast";
 import {
   DEPARTEMENTS, PIPELINE_STEPS, pipelineAvancement, formatDateCourt, formatMontant,
+  TYPES_TACHE, PRIORITES,
 } from "@/lib/crm-constants";
 import {
-  Phone, Mail, MapPin, ChevronLeft, Mic, Sparkles,
+  Phone, Mail, MapPin, ChevronLeft, Mic, Sparkles, CalendarPlus, X,
   TrendingUp, CheckCircle2, Circle,
   Activity, Users, Wrench, Settings,
 } from "lucide-react";
@@ -23,6 +25,8 @@ export default function FicheCompte() {
   const [compte, setCompte] = useState(null);
   const [loading, setLoading] = useState(true);
   const [resume, setResume] = useState(null);
+  const [rdvOpen, setRdvOpen] = useState(false);
+  const [activiteKey, setActiviteKey] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -36,23 +40,31 @@ export default function FicheCompte() {
     })();
   }, [id]);
 
+  const loadResume = async () => {
+    try {
+      const [opps, tachesAFaire] = await Promise.all([
+        base44.entities.Opportunite.filter({ compte_id: id }, { limit: 100, fields: ["etape", "montant_ht"] }),
+        base44.entities.Tache.count({ compte_id: id, statut: "À faire" }),
+      ]);
+      const items = opps.items || opps;
+      const pipelineOuvert = items
+        .filter((o) => !["Gagné", "Perdu"].includes(o.etape))
+        .reduce((s, o) => s + (o.montant_ht || 0), 0);
+      setResume({ pipelineOuvert, tachesAFaire });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const [opps, tachesAFaire] = await Promise.all([
-          base44.entities.Opportunite.filter({ compte_id: id }, { limit: 100, fields: ["etape", "montant_ht"] }),
-          base44.entities.Tache.count({ compte_id: id, statut: "À faire" }),
-        ]);
-        const items = opps.items || opps;
-        const pipelineOuvert = items
-          .filter((o) => !["Gagné", "Perdu"].includes(o.etape))
-          .reduce((s, o) => s + (o.montant_ht || 0), 0);
-        setResume({ pipelineOuvert, tachesAFaire });
-      } catch (e) {
-        console.error(e);
-      }
-    })();
+    loadResume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleRdvCreated = () => {
+    loadResume();
+    setActiviteKey((k) => k + 1);
+  };
 
   if (loading) {
     return (
@@ -115,6 +127,9 @@ export default function FicheCompte() {
             <button className="flex items-center gap-1.5 rounded-lg bg-gd-yellow/90 px-3 py-2 text-xs font-bold text-gd-black active:scale-95">
               <Mic className="h-3.5 w-3.5" /> Rapport oral
             </button>
+            <button onClick={() => setRdvOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white active:scale-95">
+              <CalendarPlus className="h-3.5 w-3.5" /> RDV
+            </button>
           </div>
         </div>
       </div>
@@ -139,7 +154,7 @@ export default function FicheCompte() {
         {/* Détails, repliés par défaut pour rester lisible */}
         <Accordion type="multiple" defaultValue={["activite"]} className="rounded-xl border border-gd-mist/50 bg-white">
           <AccordionSection value="activite" icon={Activity} title="Activité & tâches">
-            <ActiviteTab compteId={id} />
+            <ActiviteTab key={activiteKey} compteId={id} />
           </AccordionSection>
           <AccordionSection value="contacts" icon={Users} title="Contacts">
             <ContactsTab compteId={id} />
@@ -155,6 +170,100 @@ export default function FicheCompte() {
           </AccordionSection>
         </Accordion>
       </div>
+
+      {rdvOpen && (
+        <RdvModal
+          compte={compte}
+          onClose={() => setRdvOpen(false)}
+          onCreated={handleRdvCreated}
+        />
+      )}
+    </div>
+  );
+}
+
+function RdvModal({ compte, onClose, onCreated }) {
+  const [titre, setTitre] = useState(`RDV - ${compte.raison_sociale}`);
+  const [type, setType] = useState("Visite");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [heure, setHeure] = useState("09:00");
+  const [dureeMinutes, setDureeMinutes] = useState(60);
+  const [priorite, setPriorite] = useState("Normale");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!titre || !date) return;
+    setSaving(true);
+    try {
+      await base44.entities.Tache.create({
+        compte_id: compte.id,
+        titre,
+        type,
+        echeance: date,
+        heure,
+        duree_minutes: dureeMinutes,
+        priorite,
+        statut: "À faire",
+      });
+      toast({
+        title: "RDV planifié",
+        description: `${titre} le ${new Date(date).toLocaleDateString("fr-FR")} à ${heure}.`,
+      });
+      onCreated();
+      onClose();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Le RDV n'a pas pu être enregistré.", variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 lg:items-center lg:p-4" onClick={onClose}>
+      <div className="w-full max-w-md animate-slide-up rounded-t-2xl bg-white p-5 lg:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="gd-title text-sm text-gd-blue">Nouveau RDV</h3>
+          <button onClick={onClose}><X className="h-4 w-4 text-slate-400" /></button>
+        </div>
+
+        <div className="space-y-3">
+          <Field label="Titre" value={titre} onChange={setTitre} />
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="Type" value={type} onChange={setType} options={TYPES_TACHE} />
+            <SelectField label="Priorité" value={priorite} onChange={setPriorite} options={PRIORITES} />
+            <Field label="Date" value={date} onChange={setDate} type="date" />
+            <Field label="Heure" value={heure} onChange={setHeure} type="time" />
+            <Field label="Durée (min)" value={dureeMinutes} onChange={(v) => setDureeMinutes(Number(v) || 60)} type="number" />
+          </div>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-lg border border-gd-mist/60 py-2.5 text-sm font-medium">Annuler</button>
+          <button onClick={save} disabled={saving || !titre} className="flex-1 rounded-lg bg-gd-blue py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+            {saving ? "Enregistrement…" : "Planifier"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, type }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+      <input type={type || "text"} value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue" />
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue">
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
     </div>
   );
 }
