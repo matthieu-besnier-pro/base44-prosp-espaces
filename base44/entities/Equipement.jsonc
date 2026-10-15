@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "compte_id": {
+      "type": "string",
+      "description": "Lien vers le Compte"
+    },
+    "type_materiel": {
+      "type": "string"
+    },
+    "marque": {
+      "type": "string"
+    },
+    "modele": {
+      "type": "string"
+    },
+    "annee": {
+      "type": "number"
+    },
+    "etat": {
+      "type": "string",
+      "enum": [
+        "Bon",
+        "\u00c0 renouveler",
+        "HS"
+      ]
+    },
+    "date_renouvellement_estimee": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "compte_id",
+    "type_materiel"
+  ],
+  "name": "Equipement",
+  "type": "object"
+}

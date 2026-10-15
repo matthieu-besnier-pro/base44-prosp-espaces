@@ -1,0 +1,132 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import PageTitle from "@/components/PageTitle";
+import { ROLES } from "@/lib/crm-constants";
+import { useAuth } from "@/lib/AuthContext";
+import { UserCheck, UserX, Clock, Shield, Mail } from "lucide-react";
+
+export default function Utilisateurs() {
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("user");
+  const [inviting, setInviting] = useState(false);
+
+  useEffect(() => { load(); }, []);
+
+  const load = async () => {
+    try {
+      const res = await base44.entities.User.list({ sort: "-created_date" });
+      setUsers(res.items || res);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const invite = async () => {
+    if (!inviteEmail) return;
+    setInviting(true);
+    try {
+      await base44.users.inviteUser(inviteEmail, inviteRole);
+      setInviteEmail("");
+      await load();
+    } catch (e) { console.error(e); }
+    setInviting(false);
+  };
+
+  const updateUser = async (u, data) => {
+    try {
+      await base44.entities.User.update(u.id, data);
+      await load();
+    } catch (e) { console.error(e); }
+  };
+
+  if (currentUser?.role !== "Admin") {
+    return (
+      <div className="animate-fade-in">
+        <PageTitle>Utilisateurs</PageTitle>
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          <Shield className="mx-auto h-8 w-8 text-gd-mist" />
+          <p className="mt-3">Réservé aux administrateurs</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-fade-in">
+      <PageTitle subtitle="Validez les comptes et gérez les rôles">Utilisateurs</PageTitle>
+      <div className="space-y-5 p-4 lg:p-8">
+        {/* Invite */}
+        <div className="rounded-xl border border-gd-mist/40 bg-white p-4">
+          <h3 className="gd-title mb-3 text-sm text-gd-blue">Inviter un utilisateur</h3>
+          <div className="flex flex-wrap gap-2">
+            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@exemple.fr" className="h-10 flex-1 rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue" />
+            <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="h-10 rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue">
+              <option value="user">Lecteur</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button onClick={invite} disabled={inviting || !inviteEmail} className="flex items-center gap-1.5 rounded-lg bg-gd-blue px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+              <Mail className="h-4 w-4" /> Inviter
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">L'utilisateur recevra une invitation. Une fois connecté, il sera « En attente » jusqu'à validation.</p>
+        </div>
+
+        {/* Users list */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gd-mist border-t-gd-blue" />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {users.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 rounded-xl border border-gd-mist/40 bg-white p-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gd-ice text-sm font-bold text-gd-blue">
+                  {(u.full_name || u.email || "U").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{u.full_name || u.email}</div>
+                  <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+                </div>
+                <StatutUser statut={u.statut || "En attente"} />
+                <select
+                  value={u.role || "user"}
+                  onChange={(e) => updateUser(u, { role: e.target.value })}
+                  className="h-9 rounded-lg border border-gd-mist/60 px-2 text-xs outline-none focus:border-gd-blue"
+                >
+                  {ROLES.map((r) => <option key={r} value={r === "Admin" ? "admin" : "user"}>{r}</option>)}
+                </select>
+                {u.statut !== "Validé" && (
+                  <button onClick={() => updateUser(u, { statut: "Validé", date_validation: new Date().toISOString().split("T")[0] })} className="flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200">
+                    <UserCheck className="h-3.5 w-3.5" /> Valider
+                  </button>
+                )}
+                {u.statut === "Validé" && (
+                  <button onClick={() => updateUser(u, { statut: "Désactivé" })} className="flex items-center gap-1 rounded-lg bg-rose-100 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-200">
+                    <UserX className="h-3.5 w-3.5" /> Désactiver
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatutUser({ statut }) {
+  const config = {
+    "En attente": { icon: Clock, cls: "bg-amber-100 text-amber-700" },
+    "Validé": { icon: UserCheck, cls: "bg-emerald-100 text-emerald-700" },
+    "Désactivé": { icon: UserX, cls: "bg-rose-100 text-rose-700" },
+  };
+  const c = config[statut] || config["En attente"];
+  const Icon = c.icon;
+  return (
+    <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.cls}`}>
+      <Icon className="h-3 w-3" /> {statut}
+    </span>
+  );
+}

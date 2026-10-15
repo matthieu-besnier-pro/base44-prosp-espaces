@@ -1,0 +1,174 @@
+{
+  "properties": {
+    "raison_sociale": {
+      "type": "string",
+      "description": "Raison sociale du compte (nettoy\u00e9e)"
+    },
+    "siren": {
+      "type": "string",
+      "description": "SIREN 9 chiffres, unique si renseign\u00e9"
+    },
+    "famille": {
+      "type": "string",
+      "description": "Famille du compte",
+      "enum": [
+        "Espaces verts",
+        "Collectivit\u00e9"
+      ]
+    },
+    "segment": {
+      "type": "string",
+      "description": "Segment d\u00e9taill\u00e9",
+      "enum": [
+        "Paysagiste",
+        "\u00c9lagueur",
+        "\u00c9questre",
+        "Mara\u00eecher",
+        "Golf/stade",
+        "Commune",
+        "Intercommunalit\u00e9",
+        "Syndicat",
+        "D\u00e9partement",
+        "Association",
+        "Autre"
+      ]
+    },
+    "activite_detail": {
+      "type": "string",
+      "description": "D\u00e9tail de l'activit\u00e9 (reprend \u00ab Situation \u00bb du fichier)"
+    },
+    "adresse": {
+      "type": "string"
+    },
+    "code_postal": {
+      "type": "string"
+    },
+    "ville": {
+      "type": "string"
+    },
+    "departement": {
+      "type": "string",
+      "description": "D\u00e9partement",
+      "enum": [
+        "16",
+        "79",
+        "86"
+      ]
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "telephone_1": {
+      "type": "string"
+    },
+    "telephone_2": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "site_web": {
+      "type": "string"
+    },
+    "statut": {
+      "type": "string",
+      "description": "Statut commercial",
+      "enum": [
+        "\u00c0 qualifier",
+        "Prospect",
+        "Contact\u00e9",
+        "RDV planifi\u00e9",
+        "Offre en cours",
+        "Client",
+        "Perdu",
+        "Hors cible"
+      ]
+    },
+    "potentiel": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    "score": {
+      "type": "number",
+      "description": "Score de priorit\u00e9 0-100"
+    },
+    "taille": {
+      "type": "string",
+      "description": "Taille (communes en hab., entreprises en salari\u00e9s)"
+    },
+    "concession_rattachement": {
+      "type": "string",
+      "description": "Concession Gonnin-Duris la plus proche"
+    },
+    "fournisseur_actuel": {
+      "type": "string",
+      "description": "Concurrent principal"
+    },
+    "mois_vote_budget": {
+      "type": "string",
+      "description": "Mois de vote du budget (collectivit\u00e9s)"
+    },
+    "date_dernier_contact": {
+      "type": "string",
+      "format": "date"
+    },
+    "prochaine_action_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags multiples (Bio, Insertion, March\u00e9 public, Z\u00e9ro phyto\u2026)"
+    },
+    "consentement_rgpd": {
+      "type": "string",
+      "enum": [
+        "Non renseign\u00e9",
+        "OK prospection",
+        "Opposition"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "Fichier initial",
+        "Salon",
+        "Recommandation",
+        "Entrant"
+      ]
+    },
+    "resume_ia": {
+      "type": "string",
+      "description": "Synth\u00e8se IA \u00e0 jour du compte"
+    },
+    "angle_approche_ia": {
+      "type": "string"
+    },
+    "signaux_ia": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Signaux dat\u00e9s (appel d'offres, actualit\u00e9, budget vot\u00e9\u2026)"
+    },
+    "date_maj_ia": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "raison_sociale"
+  ],
+  "name": "Compte",
+  "type": "object"
+}

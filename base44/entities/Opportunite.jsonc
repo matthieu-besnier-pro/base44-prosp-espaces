@@ -1,0 +1,68 @@
+{
+  "properties": {
+    "compte_id": {
+      "type": "string",
+      "description": "Lien vers le Compte"
+    },
+    "nom": {
+      "type": "string"
+    },
+    "gamme": {
+      "type": "string",
+      "enum": [
+        "Tondeuses autoport\u00e9es",
+        "Tracteurs compacts",
+        "Broyeurs/\u00e9pareuses",
+        "Outils de d\u00e9sherbage",
+        "Utilitaires",
+        "Pi\u00e8ces/SAV",
+        "Location"
+      ]
+    },
+    "etape": {
+      "type": "string",
+      "enum": [
+        "D\u00e9tection",
+        "Besoin qualifi\u00e9",
+        "D\u00e9mo",
+        "Devis envoy\u00e9",
+        "N\u00e9gociation",
+        "Gagn\u00e9",
+        "Perdu"
+      ]
+    },
+    "montant_ht": {
+      "type": "number"
+    },
+    "probabilite": {
+      "type": "number",
+      "description": "Probabilit\u00e9 en % (auto par \u00e9tape)"
+    },
+    "date_cloture_prevue": {
+      "type": "string",
+      "format": "date"
+    },
+    "motif_perte": {
+      "type": "string",
+      "enum": [
+        "Prix",
+        "Concurrent",
+        "Budget report\u00e9",
+        "March\u00e9 public perdu",
+        "Autre"
+      ]
+    },
+    "echeance_budgetaire": {
+      "type": "string",
+      "description": "\u00c9ch\u00e9ance budg\u00e9taire collectivit\u00e9 (vote budget, appel d'offres)"
+    }
+  },
+  "required": [
+    "compte_id",
+    "nom",
+    "gamme",
+    "etape"
+  ],
+  "name": "Opportunite",
+  "type": "object"
+}

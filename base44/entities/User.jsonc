@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "R\u00f4le dans l'application",
+      "enum": [
+        "Admin",
+        "Chef des ventes",
+        "Commerciale",
+        "Lecteur"
+      ]
+    },
+    "statut": {
+      "type": "string",
+      "description": "Statut de validation du compte",
+      "enum": [
+        "En attente",
+        "Valid\u00e9",
+        "D\u00e9sactiv\u00e9"
+      ]
+    },
+    "date_validation": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "name": "User",
+  "type": "object"
+}

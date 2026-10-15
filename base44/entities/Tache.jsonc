@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "compte_id": {
+      "type": "string",
+      "description": "Lien vers le Compte"
+    },
+    "titre": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Rappel",
+        "Visite",
+        "Envoi devis",
+        "Relance devis",
+        "D\u00e9mo",
+        "Admin"
+      ]
+    },
+    "echeance": {
+      "type": "string",
+      "format": "date"
+    },
+    "priorite": {
+      "type": "string",
+      "enum": [
+        "Haute",
+        "Normale"
+      ]
+    },
+    "statut": {
+      "type": "string",
+      "enum": [
+        "\u00c0 faire",
+        "Fait",
+        "Report\u00e9"
+      ]
+    }
+  },
+  "required": [
+    "compte_id",
+    "titre"
+  ],
+  "name": "Tache",
+  "type": "object"
+}

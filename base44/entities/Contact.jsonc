@@ -1,0 +1,57 @@
+{
+  "properties": {
+    "compte_id": {
+      "type": "string",
+      "description": "Lien vers le Compte"
+    },
+    "civilite": {
+      "type": "string",
+      "enum": [
+        "M.",
+        "Mme",
+        "Dr",
+        "Autre"
+      ]
+    },
+    "prenom": {
+      "type": "string"
+    },
+    "nom": {
+      "type": "string"
+    },
+    "fonction": {
+      "type": "string",
+      "enum": [
+        "Maire",
+        "Adjoint travaux",
+        "DGS",
+        "Responsable services techniques",
+        "G\u00e9rant",
+        "Chef d'\u00e9quipe",
+        "Autre"
+      ]
+    },
+    "telephone": {
+      "type": "string"
+    },
+    "mobile": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "decideur": {
+      "type": "boolean",
+      "description": "D\u00e9cideur identifi\u00e9"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "compte_id",
+    "nom"
+  ],
+  "name": "Contact",
+  "type": "object"
+}

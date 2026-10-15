@@ -1,0 +1,119 @@
+{
+  "properties": {
+    "compte_id": {
+      "type": "string",
+      "description": "Lien vers le Compte"
+    },
+    "contacts_presents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Contacts pr\u00e9sents (noms)"
+    },
+    "auteur": {
+      "type": "string"
+    },
+    "date_heure": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lieu": {
+      "type": "string"
+    },
+    "type_contact": {
+      "type": "string",
+      "enum": [
+        "Visite",
+        "Appel",
+        "Salon",
+        "D\u00e9mo",
+        "Rencontre fortuite"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "Dict\u00e9e apr\u00e8s contact",
+        "Enregistrement de l'\u00e9change"
+      ]
+    },
+    "consentement_enregistrement": {
+      "type": "boolean"
+    },
+    "fichier_audio": {
+      "type": "string",
+      "description": "URI du fichier audio"
+    },
+    "duree": {
+      "type": "number",
+      "description": "Dur\u00e9e en secondes"
+    },
+    "transcription": {
+      "type": "string",
+      "description": "Transcription int\u00e9grale \u00e9ditable"
+    },
+    "resume_ia": {
+      "type": "string"
+    },
+    "contexte": {
+      "type": "string"
+    },
+    "besoins": {
+      "type": "string"
+    },
+    "materiel_en_place": {
+      "type": "string"
+    },
+    "concurrence": {
+      "type": "string"
+    },
+    "objections": {
+      "type": "string"
+    },
+    "engagements": {
+      "type": "string"
+    },
+    "prochaines_etapes": {
+      "type": "string"
+    },
+    "temperature": {
+      "type": "string",
+      "enum": [
+        "Froid",
+        "Ti\u00e8de",
+        "Chaud"
+      ]
+    },
+    "statut": {
+      "type": "string",
+      "enum": [
+        "Brouillon",
+        "\u00c0 relire",
+        "Valid\u00e9"
+      ]
+    },
+    "commentaires": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "auteur": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "texte": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "compte_id"
+  ],
+  "name": "RapportContact",
+  "type": "object"
+}

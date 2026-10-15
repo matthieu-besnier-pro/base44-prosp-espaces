@@ -1,0 +1,35 @@
+{
+  "properties": {
+    "nom": {
+      "type": "string"
+    },
+    "periode": {
+      "type": "string",
+      "description": "P\u00e9riode de la campagne"
+    },
+    "cible": {
+      "type": "string",
+      "description": "Filtre enregistr\u00e9 (description)"
+    },
+    "objectif": {
+      "type": "string"
+    },
+    "comptes_cibles": {
+      "type": "number"
+    },
+    "taux_contact": {
+      "type": "number"
+    },
+    "rdv": {
+      "type": "number"
+    },
+    "ca_genere": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "nom"
+  ],
+  "name": "Campagne",
+  "type": "object"
+}

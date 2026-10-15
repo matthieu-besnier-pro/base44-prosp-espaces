@@ -1,0 +1,73 @@
+{
+  "properties": {
+    "compte_id": {
+      "type": "string",
+      "description": "Lien vers le Compte"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "Lien vers le Contact (optionnel)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Appel",
+        "Visite",
+        "Email",
+        "D\u00e9mo",
+        "Salon",
+        "SMS"
+      ]
+    },
+    "date_heure": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duree": {
+      "type": "number",
+      "description": "Dur\u00e9e en minutes"
+    },
+    "resultat": {
+      "type": "string",
+      "enum": [
+        "Pas joignable",
+        "\u00c0 rappeler",
+        "Int\u00e9ress\u00e9",
+        "Pas int\u00e9ress\u00e9",
+        "RDV pris",
+        "Devis demand\u00e9"
+      ]
+    },
+    "compte_rendu": {
+      "type": "string"
+    },
+    "pieces_jointes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "transcription": {
+      "type": "string",
+      "description": "Texte brut dict\u00e9"
+    },
+    "extraction_ia": {
+      "type": "object",
+      "description": "JSON des \u00e9l\u00e9ments d\u00e9tect\u00e9s par l'IA"
+    },
+    "statut_validation": {
+      "type": "string",
+      "enum": [
+        "Propos\u00e9",
+        "Valid\u00e9",
+        "Rejet\u00e9"
+      ]
+    }
+  },
+  "required": [
+    "compte_id",
+    "type"
+  ],
+  "name": "Interaction",
+  "type": "object"
+}
