@@ -4,14 +4,32 @@ import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, STATUTS_COMPTE, POTENTIELS,
   CONCESSIONS, SOURCES, CONSENTEMENTS,
 } from "@/lib/crm-constants";
-import { calculerScore, rechercheTelephoneUrl, rechercherTelephoneIA } from "@/lib/crm-helpers";
+import { calculerScore, rechercheTelephoneUrl, rechercherTelephoneIA, geocoderAdresse } from "@/lib/crm-helpers";
 import { toast } from "@/components/ui/use-toast";
-import { ExternalLink, Save, Search, Sparkles } from "lucide-react";
+import { ExternalLink, Save, Search, Sparkles, Navigation, MapPin } from "lucide-react";
 
 export default function InfosTab({ compte, onUpdate }) {
   const [form, setForm] = useState({ ...compte });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [geolocalisation, setGeolocalisation] = useState(false);
+
+  const geolocaliser = async () => {
+    setGeolocalisation(true);
+    try {
+      const coords = await geocoderAdresse(form);
+      if (coords) {
+        setForm((f) => ({ ...f, ...coords }));
+        toast({ title: "Adresse géolocalisée", description: "Vérifiez puis enregistrez pour la voir sur la carte." });
+      } else {
+        toast({ title: "Adresse introuvable", description: "Vérifiez l'adresse, le code postal et la ville." });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La géolocalisation a échoué.", variant: "destructive" });
+    }
+    setGeolocalisation(false);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -50,6 +68,22 @@ export default function InfosTab({ compte, onUpdate }) {
           />
           <Input label="Email" value={form.email || ""} onChange={(v) => setForm({ ...form, email: v })} type="email" full />
         </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gd-mist/30 pt-3">
+          <span className={`flex items-center gap-1.5 text-xs ${form.latitude && form.longitude ? "text-emerald-600" : "text-muted-foreground"}`}>
+            <MapPin className="h-3.5 w-3.5" />
+            {form.latitude && form.longitude ? "Géolocalisé" : "Pas encore géolocalisé"}
+          </span>
+          <button
+            type="button"
+            onClick={geolocaliser}
+            disabled={geolocalisation}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-3 py-1.5 text-xs font-medium text-gd-blue hover:bg-gd-ice disabled:opacity-50"
+          >
+            <Navigation className="h-3.5 w-3.5" /> {geolocalisation ? "Recherche…" : "Géolocaliser"}
+          </button>
+        </div>
+
         {form.siren && (
           <a href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${form.siren}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-gd-blue hover:underline">
             <ExternalLink className="h-3.5 w-3.5" /> Voir sur l'annuaire des entreprises

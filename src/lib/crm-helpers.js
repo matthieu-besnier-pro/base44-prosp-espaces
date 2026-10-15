@@ -94,6 +94,28 @@ export function rechercheTelephoneUrl(compte) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
+// Géocode une adresse française via l'API officielle gratuite de la Base Adresse
+// Nationale (api-adresse.data.gouv.fr, aucune clé requise). Renvoie
+// { latitude, longitude } ou null si rien de concluant n'a été trouvé.
+export async function geocoderAdresse(compte) {
+  const q = [compte.adresse, compte.ville].filter(Boolean).join(" ") || compte.ville || compte.raison_sociale;
+  if (!q) return null;
+  const params = new URLSearchParams({ q, limit: "1" });
+  if (compte.code_postal) params.set("postcode", compte.code_postal);
+  try {
+    const res = await fetch(`https://api-adresse.data.gouv.fr/search/?${params.toString()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feature = data.features?.[0];
+    if (!feature?.geometry?.coordinates) return null;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    return { latitude, longitude };
+  } catch (e) {
+    console.error("[geocoderAdresse]", e);
+    return null;
+  }
+}
+
 function distanceKm(lat1, lon1, lat2, lon2) {
   const toRad = (d) => (d * Math.PI) / 180;
   const R = 6371;

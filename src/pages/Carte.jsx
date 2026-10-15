@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import { STATUT_COULEUR, STATUTS_COMPTE } from "@/lib/crm-constants";
+import { geocoderAdresse } from "@/lib/crm-helpers";
+import { toast } from "@/components/ui/use-toast";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Eye, EyeOff } from "lucide-react";
+import { MapPin, Eye, EyeOff, Navigation, X } from "lucide-react";
 
 const DOT_HEX = {
   slate: "94a3b8", blue: "3b82f6", cyan: "06b6d4", violet: "8b5cf6",
@@ -22,18 +24,23 @@ export default function Carte() {
   const [comptes, setComptes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hiddenStatuts, setHiddenStatuts] = useState(() => new Set());
+  const [geocodage, setGeocodage] = useState({ actif: false, fait: 0, total: 0, succes: 0 });
+  const abortRef = useRef(false);
+
+  const chargerComptes = async () => {
+    setLoading(true);
+    try {
+      const res = await base44.entities.Compte.filter(
+        { latitude: { $exists: true } },
+        { limit: 500, fields: ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"] }
+      );
+      setComptes(res.items || res);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await base44.entities.Compte.filter(
-          { latitude: { $exists: true } },
-          { limit: 500, fields: ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"] }
-        );
-        setComptes(res.items || res);
-      } catch (e) { console.error(e); }
-      setLoading(false);
-    })();
+    chargerComptes();
   }, []);
 
   const geolocalises = useMemo(() => comptes.filter((c) => c.latitude && c.longitude), [comptes]);
@@ -58,6 +65,62 @@ export default function Carte() {
     return [lats.reduce((a, b) => a + b, 0) / lats.length, lngs.reduce((a, b) => a + b, 0) / lngs.length];
   }, [visibles]);
 
+  const lancerGeocodage = async () => {
+    abortRef.current = false;
+    setGeocodage({ actif: true, fait: 0, total: 0, succes: 0 });
+    try {
+      let cursor = null;
+      let aTraiter = [];
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const page = await base44.entities.Compte.filter(
+          { latitude: { $exists: false } },
+          { limit: 200, cursor, fields: ["adresse", "code_postal", "ville", "raison_sociale"] }
+        );
+        const items = page.items || page;
+        aTraiter = aTraiter.concat(items);
+        if (!page.has_more || !page.next_cursor) break;
+        cursor = page.next_cursor;
+      }
+
+      setGeocodage((g) => ({ ...g, total: aTraiter.length }));
+      if (aTraiter.length === 0) {
+        toast({ title: "Rien à géolocaliser", description: "Tous les clients ont déjà des coordonnées." });
+        setGeocodage({ actif: false, fait: 0, total: 0, succes: 0 });
+        return;
+      }
+
+      const LOT = 5;
+      let fait = 0;
+      let succes = 0;
+      for (let i = 0; i < aTraiter.length; i += LOT) {
+        if (abortRef.current) break;
+        const lot = aTraiter.slice(i, i + LOT);
+        await Promise.all(lot.map(async (c) => {
+          const coords = await geocoderAdresse(c);
+          if (coords) {
+            try {
+              await base44.entities.Compte.update(c.id, coords);
+              succes++;
+            } catch (e) { console.error(e); }
+          }
+          fait++;
+        }));
+        setGeocodage({ actif: true, fait, total: aTraiter.length, succes });
+      }
+
+      toast({
+        title: abortRef.current ? "Géolocalisation interrompue" : "Géolocalisation terminée",
+        description: `${succes}/${fait} client${fait > 1 ? "s" : ""} géolocalisé${succes > 1 ? "s" : ""}.`,
+      });
+      await chargerComptes();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La géolocalisation a échoué.", variant: "destructive" });
+    }
+    setGeocodage((g) => ({ ...g, actif: false }));
+  };
+
   return (
     <div className="animate-fade-in">
       <PageTitle subtitle={`${geolocalises.length} clients géolocalisés`}>Carte & tournée</PageTitle>
@@ -65,6 +128,17 @@ export default function Carte() {
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-gd-mist border-t-gd-blue" />
+          </div>
+        ) : geolocalises.length === 0 && !geocodage.actif ? (
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-gd-mist/60 bg-white py-16 text-center">
+            <MapPin className="h-10 w-10 text-gd-mist" />
+            <p className="mt-3 text-sm font-medium text-muted-foreground">Aucun client géolocalisé pour le moment</p>
+            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+              L'import ne calcule pas automatiquement les coordonnées GPS. Géolocalisez vos clients à partir de leur adresse pour les voir apparaître ici.
+            </p>
+            <button onClick={lancerGeocodage} className="mt-4 flex items-center gap-1.5 rounded-lg bg-gd-blue px-4 py-2.5 text-sm font-semibold text-white active:scale-95">
+              <Navigation className="h-4 w-4" /> Géolocaliser mes clients
+            </button>
           </div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -92,6 +166,30 @@ export default function Carte() {
               </MapContainer>
             </div>
             <div className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
+              {geocodage.actif ? (
+                <div className="rounded-xl border border-gd-mist/40 bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="gd-title text-xs text-gd-blue">Géolocalisation en cours…</h3>
+                    <button onClick={() => { abortRef.current = true; }} className="text-slate-400 hover:text-gd-danger" title="Arrêter">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-gd-ice">
+                    <div
+                      className="h-full rounded-full bg-gd-blue transition-all"
+                      style={{ width: `${geocodage.total > 0 ? Math.round((geocodage.fait / geocodage.total) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    {geocodage.fait}/{geocodage.total} traités · {geocodage.succes} géolocalisés
+                  </p>
+                </div>
+              ) : (
+                <button onClick={lancerGeocodage} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gd-mist/60 bg-white px-3 py-2.5 text-xs font-medium text-gd-blue hover:bg-gd-ice">
+                  <Navigation className="h-3.5 w-3.5" /> Géolocaliser les clients manquants
+                </button>
+              )}
+
               <div className="rounded-xl border border-gd-mist/40 bg-white p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="gd-title text-xs text-gd-blue">Calques (statuts)</h3>
