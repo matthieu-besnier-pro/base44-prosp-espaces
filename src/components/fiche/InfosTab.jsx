@@ -4,8 +4,9 @@ import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, STATUTS_COMPTE, POTENTIELS,
   CONCESSIONS, SOURCES, CONSENTEMENTS,
 } from "@/lib/crm-constants";
-import { calculerScore, rechercheTelephoneUrl } from "@/lib/crm-helpers";
-import { ExternalLink, Save, Search } from "lucide-react";
+import { calculerScore, rechercheTelephoneUrl, rechercherTelephoneIA } from "@/lib/crm-helpers";
+import { toast } from "@/components/ui/use-toast";
+import { ExternalLink, Save, Search, Sparkles } from "lucide-react";
 
 export default function InfosTab({ compte, onUpdate }) {
   const [form, setForm] = useState({ ...compte });
@@ -38,14 +39,14 @@ export default function InfosTab({ compte, onUpdate }) {
             value={form.telephone_1 || ""}
             onChange={(v) => setForm({ ...form, telephone_1: v })}
             type="tel"
-            extra={!form.telephone_1 && <PhoneSearchLink form={form} />}
+            extra={!form.telephone_1 && <PhoneAiSearch compte={form} onFound={(tel) => setForm((f) => ({ ...f, telephone_1: tel }))} />}
           />
           <Input
             label="Téléphone 2"
             value={form.telephone_2 || ""}
             onChange={(v) => setForm({ ...form, telephone_2: v })}
             type="tel"
-            extra={!form.telephone_2 && <PhoneSearchLink form={form} />}
+            extra={!form.telephone_2 && <PhoneAiSearch compte={form} onFound={(tel) => setForm((f) => ({ ...f, telephone_2: tel }))} />}
           />
           <Input label="Email" value={form.email || ""} onChange={(v) => setForm({ ...form, email: v })} type="email" full />
         </div>
@@ -107,17 +108,48 @@ function Input({ label, value, onChange, type, full, extra }) {
   );
 }
 
-function PhoneSearchLink({ form }) {
+function PhoneAiSearch({ compte, onFound }) {
+  const [loading, setLoading] = useState(false);
+
+  const chercher = async () => {
+    setLoading(true);
+    try {
+      const { telephone, source } = await rechercherTelephoneIA(compte);
+      if (telephone) {
+        onFound(telephone);
+        toast({
+          title: "Numéro trouvé par l'IA",
+          description: `${telephone}${source ? " · " + source : ""} — vérifiez puis enregistrez.`,
+        });
+      } else {
+        toast({ title: "Aucun numéro trouvé", description: "L'IA n'a rien trouvé de fiable. Essayez une recherche manuelle." });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La recherche IA a échoué.", variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
   return (
-    <a
-      href={rechercheTelephoneUrl(form)}
-      target="_blank"
-      rel="noreferrer"
-      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-gd-blue hover:underline"
-      title="Ouvre une recherche Google pour trouver le numéro fixe de ce compte"
-    >
-      <Search className="h-3 w-3" /> Chercher le numéro
-    </a>
+    <div className="mt-1 flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={chercher}
+        disabled={loading}
+        className="inline-flex items-center gap-1 text-xs font-medium text-gd-blue hover:underline disabled:opacity-50"
+      >
+        <Sparkles className="h-3 w-3" /> {loading ? "Recherche en cours…" : "Trouver avec l'IA"}
+      </button>
+      <a
+        href={rechercheTelephoneUrl(compte)}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+      >
+        <Search className="h-3 w-3" /> ou chercher manuellement
+      </a>
+    </div>
   );
 }
 

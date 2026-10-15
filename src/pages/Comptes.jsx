@@ -6,7 +6,8 @@ import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
 import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE, pipelineAvancement,
 } from "@/lib/crm-constants";
-import { exportCsv, deptLabel, rechercheTelephoneUrl } from "@/lib/crm-helpers";
+import { exportCsv, deptLabel, rechercherTelephoneIA } from "@/lib/crm-helpers";
+import { toast } from "@/components/ui/use-toast";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles,
@@ -85,6 +86,10 @@ export default function Comptes() {
   }, [filters, search]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  const handlePhoneFound = (id, telephone) => {
+    setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, telephone_1: telephone } : c)));
+  };
 
   const handleExport = () => {
     exportCsv(comptes, [
@@ -194,7 +199,7 @@ export default function Comptes() {
               </TableHeader>
               <TableBody>
                 {comptes.map((c) => (
-                  <CompteRow key={c.id} compte={c} onClick={() => navigate(`/comptes/${c.id}`)} />
+                  <CompteRow key={c.id} compte={c} onClick={() => navigate(`/comptes/${c.id}`)} onPhoneFound={handlePhoneFound} />
                 ))}
               </TableBody>
             </Table>
@@ -234,7 +239,7 @@ function FilterSelect({ label, value, onChange, options, rawOptions }) {
   );
 }
 
-function CompteRow({ compte, onClick }) {
+function CompteRow({ compte, onClick, onPhoneFound }) {
   const av = pipelineAvancement(compte.statut || "À qualifier");
   const barColor = av.special === "Perdu" ? "bg-gd-danger" : av.special === "Hors cible" ? "bg-zinc-300" : "bg-gd-blue";
 
@@ -287,22 +292,50 @@ function CompteRow({ compte, onClick }) {
             <Phone className="h-3 w-3" /> {compte.telephone_1}
           </span>
         ) : (
-          <a
-            href={rechercheTelephoneUrl(compte)}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-gd-blue hover:underline"
-            title="Chercher le numéro sur Google"
-          >
-            <Search className="h-3 w-3" /> Chercher
-          </a>
+          <ChercherTelephoneButton compte={compte} onFound={onPhoneFound} />
         )}
       </TableCell>
       <TableCell>
         <ChevronRight className="h-4 w-4 text-slate-300" />
       </TableCell>
     </TableRow>
+  );
+}
+
+function ChercherTelephoneButton({ compte, onFound }) {
+  const [loading, setLoading] = useState(false);
+
+  const chercher = async (e) => {
+    e.stopPropagation();
+    setLoading(true);
+    try {
+      const { telephone, source } = await rechercherTelephoneIA(compte);
+      if (telephone) {
+        await base44.entities.Compte.update(compte.id, { telephone_1: telephone });
+        onFound(compte.id, telephone);
+        toast({
+          title: "Numéro trouvé et enregistré",
+          description: `${compte.raison_sociale} : ${telephone}${source ? " · " + source : ""}`,
+        });
+      } else {
+        toast({ title: "Aucun numéro trouvé", description: `L'IA n'a rien trouvé de fiable pour ${compte.raison_sociale}.` });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "La recherche IA a échoué.", variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  return (
+    <button
+      onClick={chercher}
+      disabled={loading}
+      className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-gd-blue hover:underline disabled:opacity-50"
+      title="Rechercher ce numéro avec l'IA"
+    >
+      <Sparkles className="h-3 w-3" /> {loading ? "Recherche…" : "Trouver avec l'IA"}
+    </button>
   );
 }
 

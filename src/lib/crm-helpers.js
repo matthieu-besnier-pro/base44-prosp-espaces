@@ -1,4 +1,5 @@
 import { DEPARTEMENTS } from "@/lib/crm-constants";
+import { base44 } from "@/api/base44Client";
 
 // Calcule le score de priorité 0-100 d'un compte (section 6 du cahier des charges)
 export function calculerScore(compte, equipements = [], opportunites = []) {
@@ -85,13 +86,42 @@ export function deptLabel(code) {
   return d ? `${d.code} ${d.nom}` : code;
 }
 
-// URL de recherche Google pour retrouver le numéro de téléphone fixe d'un compte
-// (aucun scraping : ouvre une recherche que le commercial consulte lui-même)
+// URL de recherche Google, utilisée en secours si l'IA ne trouve rien
 export function rechercheTelephoneUrl(compte) {
   const query = [compte.raison_sociale, compte.adresse, compte.code_postal, compte.ville, "téléphone"]
     .filter(Boolean)
     .join(" ");
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+// Cherche le téléphone fixe d'un compte via l'IA de Base44 (recherche internet réelle),
+// et renvoie { telephone, source } — telephone est null si rien de fiable n'a été trouvé.
+export async function rechercherTelephoneIA(compte) {
+  const adresse = [compte.adresse, compte.code_postal, compte.ville].filter(Boolean).join(" ");
+  try {
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Tu dois trouver le numéro de téléphone fixe professionnel de l'organisme suivant, en France, en cherchant sur internet (site officiel, annuaires professionnels type Pages Jaunes, site de la mairie si c'est une collectivité, etc.).
+
+Nom : ${compte.raison_sociale || ""}
+Adresse : ${adresse || "non précisée"}
+Département : ${compte.departement || "non précisé"}
+
+Réponds uniquement avec le numéro au format français "0X XX XX XX XX" si tu es raisonnablement confiant qu'il correspond bien à cet organisme précis. Si tu n'es pas sûr ou ne trouves rien, telephone doit être null. N'invente jamais de numéro.`,
+      add_context_from_internet: true,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          telephone: { type: ["string", "null"], description: "Numéro de téléphone fixe au format 0X XX XX XX XX, ou null si non trouvé avec certitude" },
+          source: { type: ["string", "null"], description: "Brève indication de la source utilisée (ex: site officiel, annuaire, pages jaunes…)" },
+        },
+        required: ["telephone"],
+      },
+    });
+    return typeof res === "object" && res ? res : { telephone: null, source: null };
+  } catch (e) {
+    console.error(e);
+    return { telephone: null, source: null };
+  }
 }
 
 function icsEscape(text) {
