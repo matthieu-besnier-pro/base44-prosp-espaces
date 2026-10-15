@@ -58,7 +58,7 @@ export default function TableauDeBord() {
         });
 
         const rep = STATUTS_COMPTE.map((s, i) => ({ statut: s, count: statutCounts[i] }));
-        rep[0].count += sansStatut; // comptes sans statut = "À qualifier" par défaut
+        rep[0].count += sansStatut; // clients sans statut = "À qualifier" par défaut
         setRepartition(rep);
       } catch (e) { console.error(e); }
       setLoading(false);
@@ -78,7 +78,7 @@ export default function TableauDeBord() {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle subtitle={`${k.totalComptes || 0} comptes en portefeuille · Zone 16, 79, 86`}>Tableau de bord</PageTitle>
+      <PageTitle subtitle={`${k.totalComptes || 0} clients en portefeuille · Zone 16, 79, 86`}>Tableau de bord</PageTitle>
       <div className="space-y-5 p-4 lg:p-8">
         {/* KPI cards : ce qu'un commercial doit traiter aujourd'hui */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -94,9 +94,9 @@ export default function TableauDeBord() {
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">
-          {/* Répartition réelle des comptes dans le cycle de prospection */}
+          {/* Répartition réelle des clients dans le cycle de prospection */}
           <div className="gd-hatch rounded-xl border border-gd-mist/50 bg-white p-5">
-            <h3 className="gd-title mb-4 text-sm text-gd-blue">Répartition des comptes par statut</h3>
+            <h3 className="gd-title mb-4 text-sm text-gd-blue">Répartition des clients par statut</h3>
             <div className="space-y-2.5">
               {repartition.map((r) => (
                 <RepartitionRow key={r.statut} statut={r.statut} count={r.count} max={maxRepartition} />

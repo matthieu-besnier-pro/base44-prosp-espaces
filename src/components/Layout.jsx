@@ -19,7 +19,7 @@ const NAV_MOBILE = [
   { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/ma-journee", label: "Ma journée", icon: CalendarCheck },
   { to: "/calendrier", label: "Calendrier", icon: CalendarDays },
-  { to: "/comptes", label: "Comptes", icon: Building2 },
+  { to: "/comptes", label: "Clients", icon: Building2 },
   { to: "/carte", label: "Carte", icon: Map },
 ];
 
@@ -97,7 +97,7 @@ export default function Layout() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Rechercher un compte, une ville, un SIREN…"
+              placeholder="Rechercher un client, une ville, un SIREN…"
               className="h-10 w-full rounded-lg border border-gd-mist/60 bg-gd-ice pl-9 pr-3 text-sm outline-none focus:border-gd-blue focus:ring-2 focus:ring-gd-blue/10"
             />
           </div>

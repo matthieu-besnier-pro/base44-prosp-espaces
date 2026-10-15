@@ -103,13 +103,13 @@ export default function Comptes() {
       { label: "Statut", get: (r) => r.statut },
       { label: "Potentiel", get: (r) => r.potentiel },
       { label: "Score", get: (r) => r.score },
-    ], "comptes.csv");
+    ], "clients.csv");
   };
 
   return (
     <div className="animate-fade-in">
-      <PageTitle subtitle={`${total} compte${total > 1 ? "s" : ""}`}>
-        Comptes
+      <PageTitle subtitle={`${total} client${total > 1 ? "s" : ""}`}>
+        Clients
       </PageTitle>
 
       <div className="p-4 lg:p-8">
@@ -187,7 +187,7 @@ export default function Comptes() {
             <Table>
               <TableHeader>
                 <TableRow className="border-gd-mist/40 hover:bg-transparent">
-                  <TableHead className="min-w-[220px]">Compte</TableHead>
+                  <TableHead className="min-w-[220px]">Client</TableHead>
                   <TableHead className="hidden lg:table-cell">Segment</TableHead>
                   <TableHead className="min-w-[160px]">Avancement</TableHead>
                   <TableHead className="hidden sm:table-cell">Potentiel</TableHead>
@@ -343,7 +343,7 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <Building2 className="h-12 w-12 text-gd-mist" />
-      <p className="mt-4 text-sm font-medium text-muted-foreground">Aucun compte trouvé</p>
+      <p className="mt-4 text-sm font-medium text-muted-foreground">Aucun client trouvé</p>
       <p className="mt-1 text-xs text-muted-foreground">Importez votre fichier ou modifiez les filtres</p>
     </div>
   );

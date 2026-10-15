@@ -110,8 +110,8 @@ export default function OrganiserJournee() {
       toast({
         title: "Tournée proposée par l'IA",
         description: items.length > 0
-          ? `${items.length} compte${items.length > 1 ? "s" : ""} à plus fort potentiel sélectionné${items.length > 1 ? "s" : ""}.`
-          : "Aucun compte ne correspond à ce secteur pour le moment.",
+          ? `${items.length} client${items.length > 1 ? "s" : ""} à plus fort potentiel sélectionné${items.length > 1 ? "s" : ""}.`
+          : "Aucun client ne correspond à ce secteur pour le moment.",
       });
     } catch (e) {
       console.error(e);
@@ -148,7 +148,7 @@ export default function OrganiserJournee() {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle subtitle="Sélectionnez les comptes à visiter et planifiez votre tournée">
+      <PageTitle subtitle="Sélectionnez les clients à visiter et planifiez votre tournée">
         Organiser une journée de prospection
       </PageTitle>
 
@@ -159,7 +159,7 @@ export default function OrganiserJournee() {
             <h2 className="gd-title text-sm">Proposition de tournée par l'IA</h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            L'IA sélectionne automatiquement les comptes à plus fort score de priorité pour composer votre tournée.
+            L'IA sélectionne automatiquement les clients à plus fort score de priorité pour composer votre tournée.
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <div>
@@ -210,7 +210,7 @@ export default function OrganiserJournee() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher un compte, une ville…"
+                placeholder="Rechercher un client, une ville…"
                 className="h-11 w-full rounded-lg border border-gd-mist/60 bg-white pl-9 pr-3 text-sm outline-none focus:border-gd-blue focus:ring-2 focus:ring-gd-blue/10"
               />
             </div>
@@ -227,7 +227,7 @@ export default function OrganiserJournee() {
           ) : candidats.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
               <Route className="h-10 w-10 text-gd-mist" />
-              <p className="mt-3 text-sm">Aucun compte ne correspond à ces critères</p>
+              <p className="mt-3 text-sm">Aucun client ne correspond à ces critères</p>
             </div>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2">
@@ -310,7 +310,7 @@ export default function OrganiserJournee() {
             </header>
             {selection.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-                Ajoutez des comptes depuis la liste à gauche pour composer votre tournée.
+                Ajoutez des clients depuis la liste à gauche pour composer votre tournée.
               </p>
             ) : (
               <div className="divide-y divide-gd-mist/30">

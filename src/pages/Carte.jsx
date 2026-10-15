@@ -34,7 +34,7 @@ export default function Carte() {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle subtitle={`${comptes.length} comptes géolocalisés`}>Carte & tournée</PageTitle>
+      <PageTitle subtitle={`${comptes.length} clients géolocalisés`}>Carte & tournée</PageTitle>
       <div className="p-4 lg:p-8">
         {loading ? (
           <div className="flex justify-center py-20">

@@ -75,7 +75,7 @@ export default function FicheCompte() {
 
   if (!compte) {
     return (
-      <div className="p-8 text-center text-muted-foreground">Compte introuvable</div>
+      <div className="p-8 text-center text-muted-foreground">Client introuvable</div>
     );
   }
 
@@ -88,7 +88,7 @@ export default function FicheCompte() {
       <div className="bg-gd-blue px-4 py-4 text-white lg:px-8">
         <div className="mx-auto max-w-5xl">
           <button onClick={() => navigate("/comptes")} className="mb-2 flex items-center gap-1 text-xs text-white/60 hover:text-white">
-            <ChevronLeft className="h-3.5 w-3.5" /> Comptes
+            <ChevronLeft className="h-3.5 w-3.5" /> Clients
           </button>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -221,7 +221,7 @@ function PipelineStepper({ statut }) {
       <div className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${
         av.special === "Perdu" ? "bg-rose-50 text-gd-danger" : "bg-zinc-100 text-zinc-500"
       }`}>
-        {av.special === "Perdu" ? "Opportunité perdue" : "Compte hors cible"}
+        {av.special === "Perdu" ? "Opportunité perdue" : "Client hors cible"}
       </div>
     );
   }
@@ -264,7 +264,7 @@ function AiInsightPanel({ compte }) {
       </div>
       {!hasInsights ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          L'IA n'a pas encore généré d'analyse pour ce compte. Elle se mettra à jour après les prochaines interactions.
+          L'IA n'a pas encore généré d'analyse pour ce client. Elle se mettra à jour après les prochaines interactions.
         </p>
       ) : (
         <div className="mt-3 space-y-2.5">

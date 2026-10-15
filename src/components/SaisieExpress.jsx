@@ -127,7 +127,7 @@ export default function SaisieExpress({ open, onClose, presetCompteId }) {
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher un compte…"
+                placeholder="Rechercher un client…"
                 className="h-11 w-full rounded-lg border border-gd-mist/60 bg-gd-ice pl-9 pr-3 text-sm outline-none focus:border-gd-blue"
               />
             </div>
