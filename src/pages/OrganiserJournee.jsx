@@ -92,6 +92,31 @@ export default function OrganiserJournee() {
 
   const mapCenter = positions.length > 0 ? positions[0] : [46.0, 0.3];
 
+  const exporterGoogleMaps = () => {
+    const avecCoords = selection.filter((c) => c.latitude && c.longitude);
+    if (avecCoords.length === 0) {
+      toast({ title: "Rien à exporter", description: "Aucun client géolocalisé dans la tournée." });
+      return;
+    }
+    const destination = avecCoords[avecCoords.length - 1];
+    const waypoints = avecCoords.slice(0, -1).map((c) => `${c.latitude},${c.longitude}`).join("|");
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving`;
+    if (waypoints) url += `&waypoints=${encodeURIComponent(waypoints)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const exporterWaze = () => {
+    const premier = selection.find((c) => c.latitude && c.longitude);
+    if (!premier) {
+      toast({ title: "Rien à exporter", description: "Aucun client géolocalisé dans la tournée." });
+      return;
+    }
+    if (selection.filter((c) => c.latitude && c.longitude).length > 1) {
+      toast({ title: "Waze : une étape à la fois", description: "Waze ne gère pas les tournées multi-étapes : navigation lancée vers le premier client, recommencez pour chaque étape suivante." });
+    }
+    window.open(`https://waze.com/ul?ll=${premier.latitude},${premier.longitude}&navigate=yes`, "_blank", "noopener,noreferrer");
+  };
+
   const genererTourneeIA = async () => {
     setIaLoading(true);
     try {
@@ -220,6 +245,13 @@ export default function OrganiserJournee() {
             <FilterSelect label="Statut" value={filters.statut} onChange={(v) => setFilters({ ...filters, statut: v })} options={STATUTS_COMPTE} />
           </div>
 
+          {!loading && (
+            <div className="mb-2 text-xs font-semibold text-muted-foreground">
+              {candidats.length} client{candidats.length > 1 ? "s" : ""} trouvé{candidats.length > 1 ? "s" : ""}
+              {candidats.length >= 100 && " (limité aux 100 premiers, affinez les filtres)"}
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-20">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-gd-mist border-t-gd-blue" />
@@ -308,6 +340,16 @@ export default function OrganiserJournee() {
                 {selection.length}
               </span>
             </header>
+            {selection.length > 0 && (
+              <div className="flex gap-2 border-b border-gd-mist/40 p-2">
+                <button onClick={exporterGoogleMaps} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice">
+                  <MapPin className="h-3.5 w-3.5" /> Google Maps
+                </button>
+                <button onClick={exporterWaze} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice">
+                  <Route className="h-3.5 w-3.5" /> Waze
+                </button>
+              </div>
+            )}
             {selection.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-muted-foreground">
                 Ajoutez des clients depuis la liste à gauche pour composer votre tournée.

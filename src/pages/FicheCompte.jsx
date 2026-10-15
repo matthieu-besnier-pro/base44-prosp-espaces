@@ -28,6 +28,9 @@ export default function FicheCompte() {
   const [rdvOpen, setRdvOpen] = useState(false);
   const [rapportOpen, setRapportOpen] = useState(false);
   const [activiteKey, setActiviteKey] = useState(0);
+  const [counts, setCounts] = useState({});
+
+  const setCount = (key) => (n) => setCounts((c) => ({ ...c, [key]: n }));
 
   useEffect(() => {
     (async () => {
@@ -155,17 +158,17 @@ export default function FicheCompte() {
 
         {/* Détails, repliés par défaut pour rester lisible */}
         <Accordion type="multiple" defaultValue={["activite"]} className="rounded-xl border border-gd-mist/50 bg-white">
-          <AccordionSection value="activite" icon={Activity} title="Activité & tâches">
-            <ActiviteTab key={activiteKey} compteId={id} />
+          <AccordionSection value="activite" icon={Activity} title="Activité & tâches" count={counts.activite}>
+            <ActiviteTab key={activiteKey} compteId={id} onCount={setCount("activite")} />
           </AccordionSection>
-          <AccordionSection value="contacts" icon={Users} title="Contacts">
-            <ContactsTab compteId={id} />
+          <AccordionSection value="contacts" icon={Users} title="Contacts" count={counts.contacts}>
+            <ContactsTab compteId={id} onCount={setCount("contacts")} />
           </AccordionSection>
-          <AccordionSection value="opportunites" icon={TrendingUp} title="Opportunités">
-            <OpportunitesTab compteId={id} />
+          <AccordionSection value="opportunites" icon={TrendingUp} title="Opportunités" count={counts.opportunites}>
+            <OpportunitesTab compteId={id} onCount={setCount("opportunites")} />
           </AccordionSection>
-          <AccordionSection value="parc" icon={Wrench} title="Parc matériel">
-            <ParcTab compteId={id} />
+          <AccordionSection value="parc" icon={Wrench} title="Parc matériel" count={counts.parc}>
+            <ParcTab compteId={id} onCount={setCount("parc")} />
           </AccordionSection>
           <AccordionSection value="infos" icon={Settings} title="Informations générales">
             <InfosTab compte={compte} onUpdate={setCompte} />
@@ -404,12 +407,17 @@ function SelectField({ label, value, onChange, options, allowEmpty }) {
   );
 }
 
-function AccordionSection({ value, icon: Icon, title, children }) {
+function AccordionSection({ value, icon: Icon, title, count, children }) {
   return (
     <AccordionItem value={value} className="border-gd-mist/40 px-4 last:border-b-0">
       <AccordionTrigger className="gd-title text-sm text-gd-blue hover:no-underline">
         <span className="flex items-center gap-2">
           <Icon className="h-4 w-4" strokeWidth={2.2} /> {title}
+          {count != null && (
+            <span className="rounded-full bg-gd-ice px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-gd-blue">
+              {count}
+            </span>
+          )}
         </span>
       </AccordionTrigger>
       <AccordionContent>{children}</AccordionContent>

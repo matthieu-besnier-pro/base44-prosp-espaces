@@ -107,6 +107,7 @@ export default function Utilisateurs() {
           </div>
         ) : (
           <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground">{users.length} utilisateur{users.length > 1 ? "s" : ""}</div>
             {users.map((u) => (
               <div key={u.id} className="flex items-center gap-3 rounded-xl border border-gd-mist/40 bg-white p-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gd-ice text-sm font-bold text-gd-blue">

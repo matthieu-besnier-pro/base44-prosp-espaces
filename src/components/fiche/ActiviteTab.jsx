@@ -18,7 +18,7 @@ const RESULTAT_COLOR = {
   "Devis demandé": "bg-blue-100 text-blue-700",
 };
 
-export default function ActiviteTab({ compteId }) {
+export default function ActiviteTab({ compteId, onCount }) {
   const [interactions, setInteractions] = useState([]);
   const [taches, setTaches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,8 +29,11 @@ export default function ActiviteTab({ compteId }) {
         base44.entities.Interaction.filter({ compte_id: compteId }, { sort: "-date_heure", limit: 50 }),
         base44.entities.Tache.filter({ compte_id: compteId, statut: "À faire" }, { sort: "echeance", limit: 20 }),
       ]);
-      setInteractions(ints.items || ints);
-      setTaches(tachesData.items || tachesData);
+      const intItems = ints.items || ints;
+      const tacheItems = tachesData.items || tachesData;
+      setInteractions(intItems);
+      setTaches(tacheItems);
+      onCount?.(intItems.length + tacheItems.length);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -67,7 +70,10 @@ export default function ActiviteTab({ compteId }) {
     <div className="space-y-6">
       {taches.length > 0 && (
         <section>
-          <h3 className="gd-title mb-3 text-sm text-gd-blue">Tâches en cours</h3>
+          <h3 className="gd-title mb-3 flex items-center gap-1.5 text-sm text-gd-blue">
+            Tâches en cours
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{taches.length}</span>
+          </h3>
           <div className="space-y-2">
             {taches.map((t) => (
               <div key={t.id} className="flex items-center gap-3 rounded-lg border border-gd-mist/40 bg-white p-3">
@@ -85,7 +91,10 @@ export default function ActiviteTab({ compteId }) {
         </section>
       )}
       <section>
-        <h3 className="gd-title mb-3 text-sm text-gd-blue">Historique des interactions</h3>
+        <h3 className="gd-title mb-3 flex items-center gap-1.5 text-sm text-gd-blue">
+          Historique des interactions
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{interactions.length}</span>
+        </h3>
         <div className="relative space-y-4 pl-6 before:absolute before:left-2.5 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-gd-mist/50">
           {interactions.map((i) => {
             const Icon = TYPE_ICON[i.type] || Phone;

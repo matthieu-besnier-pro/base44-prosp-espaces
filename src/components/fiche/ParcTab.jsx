@@ -2,17 +2,22 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Plus, Pencil, Wrench, X } from "lucide-react";
 
-export default function ParcTab({ compteId }) {
+export default function ParcTab({ compteId, onCount }) {
   const [equipements, setEquipements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
 
-  useEffect(() => { load(); }, [compteId]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compteId]);
 
   const load = async () => {
     try {
       const res = await base44.entities.Equipement.filter({ compte_id: compteId }, { sort: "-annee", limit: 50 });
-      setEquipements(res.items || res);
+      const items = res.items || res;
+      setEquipements(items);
+      onCount?.(items.length);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -21,7 +26,8 @@ export default function ParcTab({ compteId }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-muted-foreground">{equipements.length} équipement{equipements.length > 1 ? "s" : ""}</span>
         <button onClick={() => setEditing({})} className="inline-flex items-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-3 py-1.5 text-xs font-medium text-gd-blue hover:bg-gd-ice">
           <Plus className="h-3.5 w-3.5" /> Ajouter un équipement
         </button>
