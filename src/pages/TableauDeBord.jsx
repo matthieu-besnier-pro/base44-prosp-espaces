@@ -65,7 +65,7 @@ export default function TableauDeBord() {
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="gd-hatch rounded-xl border border-gd-mist/50 bg-white p-5">
             <div className="flex items-center gap-2 text-gd-blue">
-              <TrendingUp className="h-4.5 w-4.5" />
+              <TrendingUp className="h-5 w-5" />
               <h3 className="gd-title text-sm">Pipeline</h3>
             </div>
             <div className="mt-4 space-y-3">
@@ -83,7 +83,7 @@ export default function TableauDeBord() {
           {/* Entonnoir */}
           <div className="rounded-xl border border-gd-mist/50 bg-white p-5">
             <div className="flex items-center gap-2 text-gd-blue">
-              <Users className="h-4.5 w-4.5" />
+              <Users className="h-5 w-5" />
               <h3 className="gd-title text-sm">Entonnoir de conversion</h3>
             </div>
             <div className="mt-4 space-y-2">
@@ -103,7 +103,7 @@ function KpiCard({ icon: Icon, label, value, accent, sub }) {
   return (
     <div className="gd-hatch rounded-xl border border-gd-mist/50 bg-white p-4">
       <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accentClass}`}>
-        <Icon className="h-4.5 w-4.5" />
+        <Icon className="h-5 w-5" />
       </div>
       <div className="gd-tabular mt-3 text-2xl font-extrabold text-foreground">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>

@@ -13,6 +13,15 @@ import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import MaJournee from '@/pages/MaJournee';
+import Comptes from '@/pages/Comptes';
+import FicheCompte from '@/pages/FicheCompte';
+import Pipeline from '@/pages/Pipeline';
+import Carte from '@/pages/Carte';
+import TableauDeBord from '@/pages/TableauDeBord';
+import Campagnes from '@/pages/Campagnes';
+import ImportPage from '@/pages/Import';
+import Utilisateurs from '@/pages/Utilisateurs';
+import Parametres from '@/pages/Parametres';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -43,6 +52,15 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
           <Route path="/" element={<MaJournee />} />
+          <Route path="/comptes" element={<Comptes />} />
+          <Route path="/comptes/:id" element={<FicheCompte />} />
+          <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/carte" element={<Carte />} />
+          <Route path="/tableau-de-bord" element={<TableauDeBord />} />
+          <Route path="/campagnes" element={<Campagnes />} />
+          <Route path="/import" element={<ImportPage />} />
+          <Route path="/utilisateurs" element={<Utilisateurs />} />
+          <Route path="/parametres" element={<Parametres />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

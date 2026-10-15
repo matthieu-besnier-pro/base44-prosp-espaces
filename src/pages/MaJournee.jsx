@@ -1,4 +1,3 @@
-import { useState } from "react";
 import PageTitle from "@/components/PageTitle";
 import { Phone, MapPin, AlertCircle, Calendar, Sparkles, ChevronRight } from "lucide-react";
 
@@ -71,7 +70,7 @@ function Section({ icon: Icon, title, color, count, children }) {
   return (
     <section className="rounded-xl border border-gd-mist/50 bg-white shadow-sm">
       <header className={`flex items-center gap-2.5 border-b border-gd-mist/40 px-4 py-3 ${color ? `text-gd-danger` : "text-gd-blue"}`}>
-        <Icon className="h-4.5 w-4.5" strokeWidth={2.2} />
+        <Icon className="h-5 w-5" strokeWidth={2.2} />
         <h2 className="gd-title text-sm">{title}</h2>
         <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
           {count}

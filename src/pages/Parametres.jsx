@@ -19,7 +19,7 @@ function SettingCard({ icon: Icon, title, desc }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border border-gd-mist/40 bg-white p-4">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gd-ice text-gd-blue">
-        <Icon className="h-4.5 w-4.5" />
+        <Icon className="h-5 w-5" />
       </div>
       <div>
         <h3 className="text-sm font-semibold">{title}</h3>

@@ -14,9 +14,9 @@ export default function Import() {
     setStatus("uploading");
     setError("");
     try {
-      const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
+      const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file });
       setStatus("processing");
-      const res = await base44.functions.invoke("importProspects", { file_url, filename: file.name });
+      const res = await base44.functions.invoke("importProspects", { file_uri, filename: file.name });
       setResult(res);
       setStatus("done");
     } catch (e) {

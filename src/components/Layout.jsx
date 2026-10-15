@@ -15,6 +15,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import SaisieExpress from "@/components/SaisieExpress";
 
 const NAV_MOBILE = [
   { to: "/", label: "Ma journée", icon: CalendarCheck },
@@ -118,6 +119,8 @@ export default function Layout() {
         <Plus className="h-7 w-7" strokeWidth={2.5} />
       </button>
 
+      <SaisieExpress open={plusOpen} onClose={() => setPlusOpen(false)} />
+
       {/* Bottom tab bar mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-stretch border-t border-gd-mist/60 bg-white/95 backdrop-blur-md lg:hidden">
         {NAV_MOBILE.map((item) => {
@@ -146,34 +149,7 @@ export default function Layout() {
         </button>
       </nav>
 
-      {/* Plus sheet */}
-      {plusOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setPlusOpen(false)}>
-          <div className="absolute inset-0 bg-black/30" />
-          <div className="absolute bottom-0 left-0 right-0 animate-slide-up rounded-t-2xl bg-white p-4 pb-8">
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
-            <h3 className="gd-title mb-3 text-sm text-gd-blue">Saisie express</h3>
-            <div className="space-y-2">
-              {[
-                { label: "Nouvel appel", icon: "📞", to: "/comptes" },
-                { label: "Nouvelle visite", icon: "📍", to: "/comptes" },
-                { label: "Rapport oral", icon: "🎙️", to: "/comptes" },
-                { label: "Nouveau compte", icon: "➕", to: "/comptes" },
-              ].map((a) => (
-                <NavLink
-                  key={a.label}
-                  to={a.to}
-                  onClick={() => setPlusOpen(false)}
-                  className="flex items-center gap-3 rounded-xl border border-gd-mist/50 px-4 py-3 text-sm font-medium hover:bg-gd-ice"
-                >
-                  <span className="text-xl">{a.icon}</span>
-                  {a.label}
-                </NavLink>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -193,7 +169,7 @@ function NavItem({ to, label, icon: Icon, adminOnly }) {
         }`
       }
     >
-      <Icon className="h-4.5 w-4.5" strokeWidth={2} />
+      <Icon className="h-5 w-5" strokeWidth={2} />
       {label}
     </NavLink>
   );
