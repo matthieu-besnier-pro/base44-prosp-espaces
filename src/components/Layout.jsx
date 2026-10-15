@@ -93,15 +93,6 @@ export default function Layout() {
         <main className="min-h-[calc(100vh-4rem)] pb-24 lg:pb-8"><Outlet /></main>
       </div>
 
-      {/* Floating + button */}
-      <button
-        onClick={() => setPlusOpen(true)}
-        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gd-yellow text-gd-black shadow-lg shadow-gd-yellow/30 transition active:scale-95 lg:bottom-8 lg:right-8"
-        aria-label="Saisie express"
-      >
-        <Plus className="h-7 w-7" strokeWidth={2.5} />
-      </button>
-
       <SaisieExpress open={plusOpen} onClose={() => setPlusOpen(false)} />
 
       <ChatBot />

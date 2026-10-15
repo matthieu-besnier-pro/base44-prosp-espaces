@@ -71,14 +71,14 @@ Réponds uniquement au dernier message du commercial.`,
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-20 left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gd-blue text-white shadow-lg shadow-gd-blue/30 transition active:scale-95 lg:bottom-8 lg:left-8"
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gd-blue text-white shadow-lg shadow-gd-blue/30 transition active:scale-95 lg:bottom-8 lg:right-8"
         aria-label="Assistant"
       >
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </button>
 
       {open && (
-        <div className="fixed inset-x-4 bottom-36 z-40 flex h-[60vh] max-h-[500px] flex-col overflow-hidden rounded-2xl border border-gd-mist/50 bg-white shadow-2xl lg:inset-x-auto lg:bottom-24 lg:left-8 lg:w-96">
+        <div className="fixed inset-x-4 bottom-36 z-40 flex h-[60vh] max-h-[500px] flex-col overflow-hidden rounded-2xl border border-gd-mist/50 bg-white shadow-2xl lg:inset-x-auto lg:bottom-24 lg:right-8 lg:w-96">
           <header className="flex items-center gap-2 bg-gd-blue px-4 py-3 text-white">
             <Sparkles className="h-4 w-4 text-gd-yellow" />
             <h3 className="gd-title text-sm">Assistant</h3>
