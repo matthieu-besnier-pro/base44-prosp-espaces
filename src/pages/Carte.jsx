@@ -69,13 +69,17 @@ export default function Carte() {
     abortRef.current = false;
     setGeocodage({ actif: true, fait: 0, total: 0, succes: 0 });
     try {
-      let cursor = null;
+      let cursor;
       let aTraiter = [];
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const page = await base44.entities.Compte.filter(
           { latitude: { $exists: false } },
-          { limit: 200, cursor, fields: ["adresse", "code_postal", "ville", "raison_sociale"] }
+          {
+            limit: 200,
+            cursor,
+            fields: ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel"],
+          }
         );
         const items = page.items || page;
         aTraiter = aTraiter.concat(items);
@@ -96,16 +100,24 @@ export default function Carte() {
       for (let i = 0; i < aTraiter.length; i += LOT) {
         if (abortRef.current) break;
         const lot = aTraiter.slice(i, i + LOT);
+        const nouveauxPoints = [];
         await Promise.all(lot.map(async (c) => {
           const coords = await geocoderAdresse(c);
           if (coords) {
             try {
               await base44.entities.Compte.update(c.id, coords);
               succes++;
-            } catch (e) { console.error(e); }
+              nouveauxPoints.push({ ...c, ...coords });
+            } catch (e) { console.error("[geolocalisation] échec de l'enregistrement", c.raison_sociale, e); }
+          } else {
+            console.warn("[geolocalisation] adresse introuvable pour", c.raison_sociale, c.adresse, c.code_postal, c.ville);
           }
           fait++;
         }));
+        // Affiche les points sur la carte au fur et à mesure, sans attendre la fin du lot complet
+        if (nouveauxPoints.length > 0) {
+          setComptes((prev) => [...prev, ...nouveauxPoints]);
+        }
         setGeocodage({ actif: true, fait, total: aTraiter.length, succes });
       }
 
@@ -115,8 +127,8 @@ export default function Carte() {
       });
       await chargerComptes();
     } catch (e) {
-      console.error(e);
-      toast({ title: "Erreur", description: "La géolocalisation a échoué.", variant: "destructive" });
+      console.error("[geolocalisation] erreur générale", e);
+      toast({ title: "Erreur", description: e.message || "La géolocalisation a échoué.", variant: "destructive" });
     }
     setGeocodage((g) => ({ ...g, actif: false }));
   };
