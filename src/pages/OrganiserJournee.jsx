@@ -340,16 +340,22 @@ export default function OrganiserJournee() {
                 {selection.length}
               </span>
             </header>
-            {selection.length > 0 && (
-              <div className="flex gap-2 border-b border-gd-mist/40 p-2">
-                <button onClick={exporterGoogleMaps} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice">
-                  <MapPin className="h-3.5 w-3.5" /> Google Maps
-                </button>
-                <button onClick={exporterWaze} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice">
-                  <Route className="h-3.5 w-3.5" /> Waze
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2 border-b border-gd-mist/40 p-2">
+              <button
+                onClick={exporterGoogleMaps}
+                disabled={selection.length === 0}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-40 disabled:hover:bg-white"
+              >
+                <MapPin className="h-3.5 w-3.5" /> Google Maps
+              </button>
+              <button
+                onClick={exporterWaze}
+                disabled={selection.length === 0}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-40 disabled:hover:bg-white"
+              >
+                <Route className="h-3.5 w-3.5" /> Waze
+              </button>
+            </div>
             {selection.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-muted-foreground">
                 Ajoutez des clients depuis la liste à gauche pour composer votre tournée.
