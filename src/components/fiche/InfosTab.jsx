@@ -4,8 +4,8 @@ import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, STATUTS_COMPTE, POTENTIELS,
   CONCESSIONS, SOURCES, CONSENTEMENTS,
 } from "@/lib/crm-constants";
-import { calculerScore } from "@/lib/crm-helpers";
-import { ExternalLink, Save } from "lucide-react";
+import { calculerScore, rechercheTelephoneUrl } from "@/lib/crm-helpers";
+import { ExternalLink, Save, Search } from "lucide-react";
 
 export default function InfosTab({ compte, onUpdate }) {
   const [form, setForm] = useState({ ...compte });
@@ -33,8 +33,20 @@ export default function InfosTab({ compte, onUpdate }) {
           <Input label="Adresse" value={form.adresse || ""} onChange={(v) => setForm({ ...form, adresse: v })} full />
           <Input label="Code postal" value={form.code_postal || ""} onChange={(v) => setForm({ ...form, code_postal: v })} />
           <Input label="Ville" value={form.ville || ""} onChange={(v) => setForm({ ...form, ville: v })} />
-          <Input label="Téléphone 1" value={form.telephone_1 || ""} onChange={(v) => setForm({ ...form, telephone_1: v })} type="tel" />
-          <Input label="Téléphone 2" value={form.telephone_2 || ""} onChange={(v) => setForm({ ...form, telephone_2: v })} type="tel" />
+          <Input
+            label="Téléphone 1"
+            value={form.telephone_1 || ""}
+            onChange={(v) => setForm({ ...form, telephone_1: v })}
+            type="tel"
+            extra={!form.telephone_1 && <PhoneSearchLink form={form} />}
+          />
+          <Input
+            label="Téléphone 2"
+            value={form.telephone_2 || ""}
+            onChange={(v) => setForm({ ...form, telephone_2: v })}
+            type="tel"
+            extra={!form.telephone_2 && <PhoneSearchLink form={form} />}
+          />
           <Input label="Email" value={form.email || ""} onChange={(v) => setForm({ ...form, email: v })} type="email" full />
         </div>
         {form.siren && (
@@ -85,12 +97,27 @@ function Section({ title, children }) {
   );
 }
 
-function Input({ label, value, onChange, type, full }) {
+function Input({ label, value, onChange, type, full, extra }) {
   return (
     <div className={full ? "col-span-2" : ""}>
       <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
       <input type={type || "text"} value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue" />
+      {extra}
     </div>
+  );
+}
+
+function PhoneSearchLink({ form }) {
+  return (
+    <a
+      href={rechercheTelephoneUrl(form)}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-gd-blue hover:underline"
+      title="Ouvre une recherche Google pour trouver le numéro fixe de ce compte"
+    >
+      <Search className="h-3 w-3" /> Chercher le numéro
+    </a>
   );
 }
 

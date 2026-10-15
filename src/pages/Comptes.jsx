@@ -6,7 +6,7 @@ import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
 import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE, pipelineAvancement,
 } from "@/lib/crm-constants";
-import { exportCsv, deptLabel } from "@/lib/crm-helpers";
+import { exportCsv, deptLabel, rechercheTelephoneUrl } from "@/lib/crm-helpers";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles,
@@ -287,7 +287,16 @@ function CompteRow({ compte, onClick }) {
             <Phone className="h-3 w-3" /> {compte.telephone_1}
           </span>
         ) : (
-          <span className="text-xs text-slate-300">—</span>
+          <a
+            href={rechercheTelephoneUrl(compte)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-gd-blue hover:underline"
+            title="Chercher le numéro sur Google"
+          >
+            <Search className="h-3 w-3" /> Chercher
+          </a>
         )}
       </TableCell>
       <TableCell>

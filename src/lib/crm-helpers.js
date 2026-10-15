@@ -85,6 +85,15 @@ export function deptLabel(code) {
   return d ? `${d.code} ${d.nom}` : code;
 }
 
+// URL de recherche Google pour retrouver le numéro de téléphone fixe d'un compte
+// (aucun scraping : ouvre une recherche que le commercial consulte lui-même)
+export function rechercheTelephoneUrl(compte) {
+  const query = [compte.raison_sociale, compte.adresse, compte.code_postal, compte.ville, "téléphone"]
+    .filter(Boolean)
+    .join(" ");
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
 function icsEscape(text) {
   return String(text || "")
     .replace(/\\/g, "\\\\")
