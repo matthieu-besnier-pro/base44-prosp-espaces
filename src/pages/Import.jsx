@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import PageTitle from "@/components/PageTitle";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
 export default function Import() {
@@ -27,9 +26,8 @@ export default function Import() {
   };
 
   return (
-    <div className="animate-fade-in">
-      <PageTitle subtitle="Importez votre fichier de prospects (Excel/CSV)">Import & qualité</PageTitle>
-      <div className="space-y-5 p-4 lg:max-w-3xl lg:p-8">
+    <div className="space-y-5">
+      <p className="text-xs text-muted-foreground">Importez votre fichier de prospects (Excel/CSV)</p>
         <div
           onClick={() => fileRef.current?.click()}
           className="cursor-pointer rounded-xl border-2 border-dashed border-gd-mist/60 bg-white p-10 text-center transition hover:border-gd-blue hover:bg-gd-ice"
@@ -93,7 +91,6 @@ export default function Import() {
             <li className="flex items-start gap-2"><FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-gd-blue" /> Famille et segment détectés depuis l'onglet et la raison sociale</li>
           </ul>
         </div>
-      </div>
     </div>
   );
 }

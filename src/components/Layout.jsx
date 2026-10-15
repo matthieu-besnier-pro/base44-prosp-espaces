@@ -3,13 +3,9 @@ import { useAuth } from "@/lib/AuthContext";
 import {
   CalendarCheck,
   Building2,
-  KanbanSquare,
   Map,
   Route,
   LayoutDashboard,
-  Megaphone,
-  Upload,
-  Users,
   Settings,
   Plus,
   Search,
@@ -19,18 +15,14 @@ import { useState } from "react";
 import SaisieExpress from "@/components/SaisieExpress";
 
 const NAV_MOBILE = [
-  { to: "/", label: "Ma journée", icon: CalendarCheck },
+  { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { to: "/ma-journee", label: "Ma journée", icon: CalendarCheck },
   { to: "/comptes", label: "Comptes", icon: Building2 },
-  { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { to: "/carte", label: "Carte", icon: Map },
 ];
 
 const NAV_DESKTOP_EXTRA = [
   { to: "/organiser-journee", label: "Organiser une journée", icon: Route },
-  { to: "/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
-  { to: "/campagnes", label: "Campagnes", icon: Megaphone },
-  { to: "/import", label: "Import", icon: Upload },
-  { to: "/utilisateurs", label: "Utilisateurs", icon: Users, adminOnly: true },
   { to: "/parametres", label: "Paramètres", icon: Settings },
 ];
 

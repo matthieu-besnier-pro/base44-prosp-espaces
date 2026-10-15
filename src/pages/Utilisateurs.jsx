@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import PageTitle from "@/components/PageTitle";
 import { ROLES } from "@/lib/crm-constants";
 import { useAuth } from "@/lib/AuthContext";
 import { UserCheck, UserX, Clock, Shield, Mail } from "lucide-react";
@@ -43,20 +42,15 @@ export default function Utilisateurs() {
 
   if (currentUser?.role !== "Admin") {
     return (
-      <div className="animate-fade-in">
-        <PageTitle>Utilisateurs</PageTitle>
-        <div className="p-8 text-center text-sm text-muted-foreground">
-          <Shield className="mx-auto h-8 w-8 text-gd-mist" />
-          <p className="mt-3">Réservé aux administrateurs</p>
-        </div>
+      <div className="rounded-xl border border-dashed border-gd-mist/60 bg-white p-8 text-center text-sm text-muted-foreground">
+        <Shield className="mx-auto h-8 w-8 text-gd-mist" />
+        <p className="mt-3">Réservé aux administrateurs</p>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in">
-      <PageTitle subtitle="Validez les comptes et gérez les rôles">Utilisateurs</PageTitle>
-      <div className="space-y-5 p-4 lg:p-8">
+    <div className="space-y-5">
         {/* Invite */}
         <div className="rounded-xl border border-gd-mist/40 bg-white p-4">
           <h3 className="gd-title mb-3 text-sm text-gd-blue">Inviter un utilisateur</h3>
@@ -111,7 +105,6 @@ export default function Utilisateurs() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }

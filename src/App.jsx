@@ -16,12 +16,8 @@ import MaJournee from '@/pages/MaJournee';
 import OrganiserJournee from '@/pages/OrganiserJournee';
 import Comptes from '@/pages/Comptes';
 import FicheCompte from '@/pages/FicheCompte';
-import Pipeline from '@/pages/Pipeline';
 import Carte from '@/pages/Carte';
 import TableauDeBord from '@/pages/TableauDeBord';
-import Campagnes from '@/pages/Campagnes';
-import ImportPage from '@/pages/Import';
-import Utilisateurs from '@/pages/Utilisateurs';
 import Parametres from '@/pages/Parametres';
 
 const AuthenticatedApp = () => {
@@ -52,16 +48,12 @@ const AuthenticatedApp = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<MaJournee />} />
+          <Route path="/" element={<TableauDeBord />} />
+          <Route path="/ma-journee" element={<MaJournee />} />
           <Route path="/organiser-journee" element={<OrganiserJournee />} />
           <Route path="/comptes" element={<Comptes />} />
           <Route path="/comptes/:id" element={<FicheCompte />} />
-          <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/carte" element={<Carte />} />
-          <Route path="/tableau-de-bord" element={<TableauDeBord />} />
-          <Route path="/campagnes" element={<Campagnes />} />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/utilisateurs" element={<Utilisateurs />} />
           <Route path="/parametres" element={<Parametres />} />
         </Route>
       </Route>
