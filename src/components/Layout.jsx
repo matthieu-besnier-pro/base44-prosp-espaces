@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import SaisieExpress from "@/components/SaisieExpress";
 import BrandMark from "@/components/BrandMark";
+import ChatBot from "@/components/ChatBot";
 
 const NAV_MOBILE = [
   { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -102,6 +103,8 @@ export default function Layout() {
       </button>
 
       <SaisieExpress open={plusOpen} onClose={() => setPlusOpen(false)} />
+
+      <ChatBot />
 
       {/* Bottom tab bar mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-stretch border-t border-gd-mist/60 bg-white/95 backdrop-blur-md lg:hidden">
