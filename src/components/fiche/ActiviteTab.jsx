@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { formatDateHeure } from "@/lib/crm-constants";
 import { RESULTATS_INTERACTION } from "@/lib/crm-constants";
-import { Phone, Calendar, Mail, Monitor, Award, MessageSquare, Plus } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import { Phone, Calendar, Mail, Monitor, Award, MessageSquare, Plus, Trash2 } from "lucide-react";
 
 const TYPE_ICON = {
   Appel: Phone, Visite: Calendar, Email: Mail, Démo: Monitor, Salon: Award, SMS: MessageSquare,
@@ -22,19 +23,34 @@ export default function ActiviteTab({ compteId }) {
   const [taches, setTaches] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const load = async () => {
+    try {
+      const [ints, tachesData] = await Promise.all([
+        base44.entities.Interaction.filter({ compte_id: compteId }, { sort: "-date_heure", limit: 50 }),
+        base44.entities.Tache.filter({ compte_id: compteId, statut: "À faire" }, { sort: "echeance", limit: 20 }),
+      ]);
+      setInteractions(ints.items || ints);
+      setTaches(tachesData.items || tachesData);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const [ints, tachesData] = await Promise.all([
-          base44.entities.Interaction.filter({ compte_id: compteId }, { sort: "-date_heure", limit: 50 }),
-          base44.entities.Tache.filter({ compte_id: compteId, statut: "À faire" }, { sort: "echeance", limit: 20 }),
-        ]);
-        setInteractions(ints.items || ints);
-        setTaches(tachesData.items || tachesData);
-      } catch (e) { console.error(e); }
-      setLoading(false);
-    })();
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compteId]);
+
+  const deleteTache = async (tacheId) => {
+    if (!window.confirm("Supprimer cette tâche ?")) return;
+    try {
+      await base44.entities.Tache.delete(tacheId);
+      toast({ title: "Tâche supprimée" });
+      await load();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La suppression a échoué.", variant: "destructive" });
+    }
+  };
 
   if (loading) return <Spinner />;
   if (interactions.length === 0 && taches.length === 0) {
@@ -58,8 +74,11 @@ export default function ActiviteTab({ compteId }) {
                 <div className={`h-2 w-2 rounded-full ${t.priorite === "Haute" ? "bg-gd-danger" : "bg-gd-blue"}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{t.titre}</div>
-                  <div className="text-xs text-muted-foreground">{t.type} · {t.echeance || "Sans échéance"}</div>
+                  <div className="text-xs text-muted-foreground">{t.type} · {t.echeance || "Sans échéance"}{t.heure ? ` à ${t.heure}` : ""}</div>
                 </div>
+                <button onClick={() => deleteTache(t.id)} className="shrink-0 text-slate-300 hover:text-gd-danger" title="Supprimer">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
           </div>

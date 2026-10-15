@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import ClientLink from "@/components/ClientLink";
-import { Phone, MapPin, AlertCircle, Calendar, Sparkles, ChevronRight } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import { Phone, MapPin, AlertCircle, Calendar, Sparkles, ChevronRight, Trash2 } from "lucide-react";
 import { endOfWeek, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -15,8 +16,7 @@ export default function MaJournee() {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
+  const loadJournee = async () => {
       setLoading(true);
       try {
         const today = new Date();
@@ -63,8 +63,24 @@ export default function MaJournee() {
         console.error(e);
       }
       setLoading(false);
-    })();
+  };
+
+  useEffect(() => {
+    loadJournee();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const deleteTache = async (tacheId) => {
+    if (!window.confirm("Supprimer cette tâche ?")) return;
+    try {
+      await base44.entities.Tache.delete(tacheId);
+      toast({ title: "Tâche supprimée" });
+      await loadJournee();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La suppression a échoué.", variant: "destructive" });
+    }
+  };
 
   const dateDuJour = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -85,7 +101,7 @@ export default function MaJournee() {
           {retards.length === 0 ? (
             <EmptyRow text="Aucune tâche en retard, bravo !" />
           ) : (
-            retards.map(({ tache, compte }) => <TaskRow key={tache.id} tache={tache} compte={compte} urgent />)
+            retards.map(({ tache, compte }) => <TaskRow key={tache.id} tache={tache} compte={compte} urgent onDelete={deleteTache} />)
           )}
         </Section>
 
@@ -93,7 +109,7 @@ export default function MaJournee() {
           {aujourdhui.length === 0 ? (
             <EmptyRow text="Rien de prévu aujourd'hui" />
           ) : (
-            aujourdhui.map(({ tache, compte }) => <TaskRow key={tache.id} tache={tache} compte={compte} />)
+            aujourdhui.map(({ tache, compte }) => <TaskRow key={tache.id} tache={tache} compte={compte} onDelete={deleteTache} />)
           )}
         </Section>
 
@@ -101,7 +117,7 @@ export default function MaJournee() {
           {rdvSemaine.length === 0 ? (
             <EmptyRow text="Pas de RDV planifié cette semaine" />
           ) : (
-            rdvSemaine.map(({ tache, compte }) => <RdvRow key={tache.id} tache={tache} compte={compte} />)
+            rdvSemaine.map(({ tache, compte }) => <RdvRow key={tache.id} tache={tache} compte={compte} onDelete={deleteTache} />)
           )}
         </Section>
 
@@ -136,7 +152,7 @@ function EmptyRow({ text }) {
   return <p className="px-4 py-6 text-center text-xs text-muted-foreground">{text}</p>;
 }
 
-function TaskRow({ tache, compte, urgent }) {
+function TaskRow({ tache, compte, urgent, onDelete }) {
   if (!compte) return null;
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -170,11 +186,14 @@ function TaskRow({ tache, compte, urgent }) {
           Pas de tel
         </span>
       )}
+      <button onClick={() => onDelete(tache.id)} className="shrink-0 text-slate-300 hover:text-gd-danger" title="Supprimer cette tâche">
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   );
 }
 
-function RdvRow({ tache, compte }) {
+function RdvRow({ tache, compte, onDelete }) {
   if (!compte) return null;
   const date = new Date(`${tache.echeance}T00:00:00`);
   return (
@@ -198,6 +217,9 @@ function RdvRow({ tache, compte }) {
           <span className="font-medium text-gd-blue">{tache.type}</span>
         </div>
       </div>
+      <button onClick={() => onDelete(tache.id)} className="shrink-0 text-slate-300 hover:text-gd-danger" title="Supprimer ce RDV">
+        <Trash2 className="h-4 w-4" />
+      </button>
       <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
     </div>
   );

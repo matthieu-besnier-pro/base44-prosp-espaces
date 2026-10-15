@@ -8,7 +8,7 @@ import { downloadIcs } from "@/lib/crm-helpers";
 import { startOfWeek, addDays, format, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  ChevronLeft, ChevronRight, Plus, X, Phone, MapPin, Download, Clock, Search, Check,
+  ChevronLeft, ChevronRight, Plus, X, Phone, MapPin, Download, Clock, Search, Check, Trash2,
 } from "lucide-react";
 
 const toIso = (d) => format(d, "yyyy-MM-dd");
@@ -69,6 +69,18 @@ export default function Calendrier() {
     toast({ title: "Export .ics prêt", description: "Ouvrez le fichier téléchargé pour l'ajouter à Outlook." });
   };
 
+  const deleteTache = async (t) => {
+    if (!window.confirm(`Supprimer « ${t.titre} » ?`)) return;
+    try {
+      await base44.entities.Tache.delete(t.id);
+      toast({ title: "RDV supprimé" });
+      await loadSemaine();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La suppression a échoué.", variant: "destructive" });
+    }
+  };
+
   const exportSemaine = () => {
     if (taches.length === 0) {
       toast({ title: "Rien à exporter", description: "Aucun RDV planifié cette semaine." });
@@ -115,7 +127,7 @@ export default function Calendrier() {
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-2 gd-scrollbar-thin">
             {days.map((day) => (
-              <JourColonne key={toIso(day)} day={day} taches={tachesParJour(day)} comptesById={comptesById} onExport={exportTache} />
+              <JourColonne key={toIso(day)} day={day} taches={tachesParJour(day)} comptesById={comptesById} onExport={exportTache} onDelete={deleteTache} />
             ))}
           </div>
         )}
@@ -132,7 +144,7 @@ export default function Calendrier() {
   );
 }
 
-function JourColonne({ day, taches, comptesById, onExport }) {
+function JourColonne({ day, taches, comptesById, onExport, onDelete }) {
   const isToday = isSameDay(day, new Date());
   return (
     <div className={`flex min-w-[230px] flex-1 flex-col rounded-xl border ${isToday ? "border-gd-blue/40 bg-gd-blue/5" : "border-gd-mist/50 bg-white"}`}>
@@ -152,9 +164,14 @@ function JourColonne({ day, taches, comptesById, onExport }) {
                   <span className="flex items-center gap-1 text-xs font-bold text-gd-blue">
                     <Clock className="h-3 w-3" /> {t.heure || "—"}
                   </span>
-                  <button onClick={() => onExport(t)} className="text-slate-300 hover:text-gd-blue" title="Exporter vers Outlook (.ics)">
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button onClick={() => onExport(t)} className="text-slate-300 hover:text-gd-blue" title="Exporter vers Outlook (.ics)">
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => onDelete(t)} className="text-slate-300 hover:text-gd-danger" title="Supprimer">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1 truncate text-sm font-semibold">{t.titre}</div>
                 {c && (
