@@ -4,7 +4,7 @@ import PageTitle from "@/components/PageTitle";
 import { STATUTS_COMPTE, STATUT_COULEUR } from "@/lib/crm-constants";
 import {
   AlertTriangle, CalendarCheck, PhoneOff, Wrench, Phone, Video,
-  Building2, TrendingUp, Star, Route, CheckCircle2,
+  Building2, TrendingUp, Star, Route, CheckCircle2, Sparkles,
 } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, addDays, addMonths, format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -20,6 +20,8 @@ export default function TableauDeBord() {
   const [k, setK] = useState(null);
   const [repartition, setRepartition] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [analyseIA, setAnalyseIA] = useState(null);
+  const [analyseLoading, setAnalyseLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -94,6 +96,45 @@ export default function TableauDeBord() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!k) return;
+    const activite = (k.appelsMois || 0) + (k.visitesMois || 0) + (k.rdvPrisMois || 0) + (k.contactesMois || 0);
+    if (activite === 0) return; // pas encore de premiers mouvements : rien à analyser
+
+    const cacheKey = `gd-analyse-ia-${format(new Date(), "yyyy-MM-dd")}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      setAnalyseIA(cached);
+      return;
+    }
+
+    setAnalyseLoading(true);
+    base44.integrations.Core.InvokeLLM({
+      prompt: `Tu es un assistant pour une équipe commerciale de prospection (vente de matériel agricole et d'espaces verts, zone Charente/Deux-Sèvres/Vienne, concessionnaire New Holland).
+
+Voici les indicateurs actuels du tableau de bord :
+- Portefeuille : ${k.totalComptes} clients au total, ${k.clientsCount} déjà clients, ${k.jamaisContactes} jamais contactés, ${k.tachesRetard} tâches en retard, ${k.equipementsARenouveler} équipements à renouveler sous 12 mois
+- Ce mois-ci : ${k.appelsMois} appels, ${k.visitesMois} visites, ${k.rdvPrisMois} RDV pris, ${k.oppsCreesMois} opportunités ouvertes, ${k.contactesMois} clients contactés
+- Cette semaine : ${k.appels7j} appels, ${k.visites7j} visites, ${k.rdvPris7j} RDV pris
+
+Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et actionnable : souligne ce qui va bien si pertinent, et signale au maximum un seul point d'attention prioritaire (ex. tâches en retard, clients jamais contactés). Pas de généralités, pas de formules creuses.`,
+      response_json_schema: {
+        type: "object",
+        properties: { analyse: { type: "string" } },
+        required: ["analyse"],
+      },
+    })
+      .then((res) => {
+        const text = typeof res === "object" && res?.analyse ? res.analyse : typeof res === "string" ? res : null;
+        if (text) {
+          setAnalyseIA(text);
+          localStorage.setItem(cacheKey, text);
+        }
+      })
+      .catch((e) => console.error("[analyseIA]", e))
+      .finally(() => setAnalyseLoading(false));
+  }, [k]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -110,6 +151,22 @@ export default function TableauDeBord() {
       <PageTitle subtitle={`${k.totalComptes || 0} clients en portefeuille · Zone 16, 79, 86`}>Tableau de bord</PageTitle>
 
       <div className="space-y-8 p-4 lg:p-8">
+        {(analyseLoading || analyseIA) && (
+          <div className="rounded-xl border border-gd-yellow/30 bg-gd-yellow/5 p-3">
+            <div className="flex items-start gap-2">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gd-yellow" />
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 text-xs font-semibold text-gd-navy">Analyse IA</div>
+                {analyseLoading ? (
+                  <p className="text-sm text-muted-foreground">Génération de l'analyse…</p>
+                ) : (
+                  <p className="text-sm text-foreground/80">{analyseIA}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ───────────────────── GLOBAL ───────────────────── */}
         <DashboardSection title="Vue d'ensemble" subtitle="Portefeuille global">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">

@@ -94,6 +94,59 @@ export function rechercheTelephoneUrl(compte) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Réordonne une liste de points (objets avec latitude/longitude) par plus-proche-voisin,
+// pour limiter les allers-retours d'une tournée. Heuristique simple (pas un TSP optimal),
+// largement suffisante pour une tournée commerciale d'une dizaine d'arrêts.
+// Les points sans coordonnées sont conservés tels quels, à la fin.
+export function optimiserOrdreTrajet(points) {
+  const avecCoords = points.filter((p) => p.latitude && p.longitude);
+  const sansCoords = points.filter((p) => !(p.latitude && p.longitude));
+  if (avecCoords.length <= 2) return [...avecCoords, ...sansCoords];
+
+  const remaining = [...avecCoords];
+  const ordered = [remaining.shift()];
+  while (remaining.length > 0) {
+    const last = ordered[ordered.length - 1];
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    remaining.forEach((p, i) => {
+      const d = distanceKm(last.latitude, last.longitude, p.latitude, p.longitude);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    ordered.push(remaining.splice(bestIdx, 1)[0]);
+  }
+  return [...ordered, ...sansCoords];
+}
+
+// Ouvre Google Maps (itinéraire multi-étapes) pour une liste de points ordonnée.
+export function ouvrirGoogleMaps(points) {
+  const avecCoords = points.filter((p) => p.latitude && p.longitude);
+  if (avecCoords.length === 0) return false;
+  const destination = avecCoords[avecCoords.length - 1];
+  const waypoints = avecCoords.slice(0, -1).map((p) => `${p.latitude},${p.longitude}`).join("|");
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving`;
+  if (waypoints) url += `&waypoints=${encodeURIComponent(waypoints)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+  return true;
+}
+
+// Ouvre Waze — ne gère qu'une seule destination, donc la première étape de l'itinéraire.
+export function ouvrirWaze(points) {
+  const premier = points.find((p) => p.latitude && p.longitude);
+  if (!premier) return false;
+  window.open(`https://waze.com/ul?ll=${premier.latitude},${premier.longitude}&navigate=yes`, "_blank", "noopener,noreferrer");
+  return true;
+}
+
 // Cherche le téléphone fixe d'un compte via l'IA de Base44 (recherche internet réelle),
 // et renvoie { telephone, source } — telephone est null si rien de fiable n'a été trouvé.
 export async function rechercherTelephoneIA(compte) {

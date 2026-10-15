@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import ClientLink from "@/components/ClientLink";
 import { toast } from "@/components/ui/use-toast";
-import { Phone, MapPin, AlertCircle, Calendar, Sparkles, ChevronRight, Trash2 } from "lucide-react";
+import { optimiserOrdreTrajet, ouvrirGoogleMaps, ouvrirWaze } from "@/lib/crm-helpers";
+import { Phone, MapPin, AlertCircle, Calendar, Sparkles, ChevronRight, Trash2, Navigation, Route } from "lucide-react";
 import { endOfWeek, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -82,6 +83,35 @@ export default function MaJournee() {
     }
   };
 
+  const pointsJournee = useMemo(() => {
+    const comptesJour = [...retards, ...aujourdhui].map((r) => r.compte).filter(Boolean);
+    const vus = new Set();
+    const uniques = [];
+    comptesJour.forEach((c) => {
+      if (!vus.has(c.id)) { vus.add(c.id); uniques.push(c); }
+    });
+    return uniques;
+  }, [retards, aujourdhui]);
+
+  const arretsGeolocalises = pointsJournee.filter((c) => c.latitude && c.longitude).length;
+
+  const exporterGoogleMaps = () => {
+    if (!ouvrirGoogleMaps(optimiserOrdreTrajet(pointsJournee))) {
+      toast({ title: "Rien à exporter", description: "Aucun client géolocalisé aujourd'hui." });
+    }
+  };
+
+  const exporterWaze = () => {
+    if (arretsGeolocalises === 0) {
+      toast({ title: "Rien à exporter", description: "Aucun client géolocalisé aujourd'hui." });
+      return;
+    }
+    if (arretsGeolocalises > 1) {
+      toast({ title: "Waze : une étape à la fois", description: "Navigation lancée vers le premier arrêt ; recommencez pour les suivants." });
+    }
+    ouvrirWaze(optimiserOrdreTrajet(pointsJournee));
+  };
+
   const dateDuJour = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   if (loading) {
@@ -97,6 +127,31 @@ export default function MaJournee() {
       <PageTitle subtitle={dateDuJour.charAt(0).toUpperCase() + dateDuJour.slice(1)}>Ma journée</PageTitle>
 
       <div className="space-y-5 p-4 lg:max-w-5xl lg:p-8">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gd-mist/50 bg-white p-3">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            {arretsGeolocalises} arrêt{arretsGeolocalises > 1 ? "s" : ""} géolocalisé{arretsGeolocalises > 1 ? "s" : ""} aujourd'hui
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={exporterGoogleMaps}
+              disabled={arretsGeolocalises === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-40 disabled:hover:bg-white"
+              title="Itinéraire optimisé vers Google Maps"
+            >
+              <Navigation className="h-3.5 w-3.5" /> Google Maps
+            </button>
+            <button
+              onClick={exporterWaze}
+              disabled={arretsGeolocalises === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-40 disabled:hover:bg-white"
+              title="Waze ne gère qu'une seule destination à la fois"
+            >
+              <Route className="h-3.5 w-3.5" /> Waze
+            </button>
+          </div>
+        </div>
+
         <Section icon={AlertCircle} title="En retard" color="gd-danger" count={retards.length}>
           {retards.length === 0 ? (
             <EmptyRow text="Aucune tâche en retard, bravo !" />

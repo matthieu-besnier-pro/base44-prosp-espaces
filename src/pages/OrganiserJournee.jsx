@@ -5,9 +5,10 @@ import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
 import ClientLink from "@/components/ClientLink";
 import { SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE } from "@/lib/crm-constants";
 import { toast } from "@/components/ui/use-toast";
+import { optimiserOrdreTrajet, ouvrirGoogleMaps, ouvrirWaze } from "@/lib/crm-helpers";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from "react-leaflet";
 import {
-  Search, MapPin, Phone, Plus, X, ChevronUp, ChevronDown, Route, CalendarDays, Check, Sparkles,
+  Search, MapPin, Phone, Plus, X, ChevronUp, ChevronDown, Route, CalendarDays, Check, Sparkles, Shuffle,
 } from "lucide-react";
 
 function todayIso() {
@@ -92,29 +93,31 @@ export default function OrganiserJournee() {
 
   const mapCenter = positions.length > 0 ? positions[0] : [46.0, 0.3];
 
+  const optimiserOrdre = () => {
+    if (selection.filter((c) => c.latitude && c.longitude).length < 3) {
+      toast({ title: "Rien à optimiser", description: "Il faut au moins 3 clients géolocalisés." });
+      return;
+    }
+    setSelection((prev) => optimiserOrdreTrajet(prev));
+    toast({ title: "Ordre optimisé", description: "La tournée a été réordonnée pour limiter les trajets." });
+  };
+
   const exporterGoogleMaps = () => {
+    if (!ouvrirGoogleMaps(selection)) {
+      toast({ title: "Rien à exporter", description: "Aucun client géolocalisé dans la tournée." });
+    }
+  };
+
+  const exporterWaze = () => {
     const avecCoords = selection.filter((c) => c.latitude && c.longitude);
     if (avecCoords.length === 0) {
       toast({ title: "Rien à exporter", description: "Aucun client géolocalisé dans la tournée." });
       return;
     }
-    const destination = avecCoords[avecCoords.length - 1];
-    const waypoints = avecCoords.slice(0, -1).map((c) => `${c.latitude},${c.longitude}`).join("|");
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving`;
-    if (waypoints) url += `&waypoints=${encodeURIComponent(waypoints)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  const exporterWaze = () => {
-    const premier = selection.find((c) => c.latitude && c.longitude);
-    if (!premier) {
-      toast({ title: "Rien à exporter", description: "Aucun client géolocalisé dans la tournée." });
-      return;
-    }
-    if (selection.filter((c) => c.latitude && c.longitude).length > 1) {
+    if (avecCoords.length > 1) {
       toast({ title: "Waze : une étape à la fois", description: "Waze ne gère pas les tournées multi-étapes : navigation lancée vers le premier client, recommencez pour chaque étape suivante." });
     }
-    window.open(`https://waze.com/ul?ll=${premier.latitude},${premier.longitude}&navigate=yes`, "_blank", "noopener,noreferrer");
+    ouvrirWaze(selection);
   };
 
   const genererTourneeIA = async () => {
@@ -340,7 +343,15 @@ export default function OrganiserJournee() {
                 {selection.length}
               </span>
             </header>
-            <div className="flex gap-2 border-b border-gd-mist/40 p-2">
+            <div className="flex flex-wrap gap-2 border-b border-gd-mist/40 p-2">
+              <button
+                onClick={optimiserOrdre}
+                disabled={selection.length < 3}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gd-mist/60 bg-white px-2 py-2 text-xs font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-40 disabled:hover:bg-white"
+                title="Réordonne la tournée pour limiter les trajets"
+              >
+                <Shuffle className="h-3.5 w-3.5" /> Optimiser l'ordre
+              </button>
               <button
                 onClick={exporterGoogleMaps}
                 disabled={selection.length === 0}
