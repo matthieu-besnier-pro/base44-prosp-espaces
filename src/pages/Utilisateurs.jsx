@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { ROLES } from "@/lib/crm-constants";
 import { useAuth } from "@/lib/AuthContext";
-import { UserCheck, UserX, Clock, Shield, Mail } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import { UserCheck, UserX, Clock, Shield, Mail, UserPlus } from "lucide-react";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Utilisateurs() {
   const { user: currentUser } = useAuth();
@@ -22,14 +25,24 @@ export default function Utilisateurs() {
     setLoading(false);
   };
 
+  const emailValid = EMAIL_RE.test(inviteEmail.trim());
+  const alreadyInvited = users.some((u) => u.email?.toLowerCase() === inviteEmail.trim().toLowerCase());
+
   const invite = async () => {
-    if (!inviteEmail) return;
+    if (!emailValid || alreadyInvited) return;
     setInviting(true);
     try {
-      await base44.users.inviteUser(inviteEmail, inviteRole);
+      await base44.users.inviteUser(inviteEmail.trim(), inviteRole);
+      toast({
+        title: "Invitation envoyée",
+        description: `${inviteEmail.trim()} va recevoir un email pour rejoindre l'outil.`,
+      });
       setInviteEmail("");
       await load();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Échec de l'invitation", description: e.message || "Réessayez dans un instant.", variant: "destructive" });
+    }
     setInviting(false);
   };
 
@@ -37,7 +50,10 @@ export default function Utilisateurs() {
     try {
       await base44.entities.User.update(u.id, data);
       await load();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La mise à jour de l'utilisateur a échoué.", variant: "destructive" });
+    }
   };
 
   if (currentUser?.role !== "Admin") {
@@ -51,20 +67,37 @@ export default function Utilisateurs() {
 
   return (
     <div className="space-y-5">
-        {/* Invite */}
+        {/* Ajout / invitation */}
         <div className="rounded-xl border border-gd-mist/40 bg-white p-4">
-          <h3 className="gd-title mb-3 text-sm text-gd-blue">Inviter un utilisateur</h3>
+          <h3 className="gd-title mb-3 flex items-center gap-1.5 text-sm text-gd-blue">
+            <UserPlus className="h-4 w-4" /> Ajouter un utilisateur
+          </h3>
           <div className="flex flex-wrap gap-2">
-            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@exemple.fr" className="h-10 flex-1 rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue" />
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && emailValid && !alreadyInvited) invite(); }}
+              placeholder="email@exemple.fr"
+              className={`h-10 flex-1 rounded-lg border px-3 text-sm outline-none focus:border-gd-blue ${
+                inviteEmail && !emailValid ? "border-gd-danger" : "border-gd-mist/60"
+              }`}
+            />
             <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="h-10 rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue">
               <option value="user">Lecteur</option>
               <option value="admin">Admin</option>
             </select>
-            <button onClick={invite} disabled={inviting || !inviteEmail} className="flex items-center gap-1.5 rounded-lg bg-gd-blue px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-              <Mail className="h-4 w-4" /> Inviter
+            <button onClick={invite} disabled={inviting || !emailValid || alreadyInvited} className="flex items-center gap-1.5 rounded-lg bg-gd-blue px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+              <Mail className="h-4 w-4" /> {inviting ? "Envoi…" : "Inviter"}
             </button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">L'utilisateur recevra une invitation. Une fois connecté, il sera « En attente » jusqu'à validation.</p>
+          {inviteEmail && !emailValid && (
+            <p className="mt-2 text-xs font-medium text-gd-danger">Adresse email invalide.</p>
+          )}
+          {alreadyInvited && (
+            <p className="mt-2 text-xs font-medium text-gd-danger">Cet utilisateur est déjà dans la liste ci-dessous.</p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">L'ajout se fait par invitation email. Une fois connecté, l'utilisateur est « En attente » jusqu'à validation.</p>
         </div>
 
         {/* Users list */}
