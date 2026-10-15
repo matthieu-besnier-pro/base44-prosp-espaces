@@ -100,26 +100,38 @@ export async function rechercherTelephoneIA(compte) {
   const adresse = [compte.adresse, compte.code_postal, compte.ville].filter(Boolean).join(" ");
   try {
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Tu dois trouver le numéro de téléphone fixe professionnel de l'organisme suivant, en France, en cherchant sur internet (site officiel, annuaires professionnels type Pages Jaunes, site de la mairie si c'est une collectivité, etc.).
+      prompt: `Cherche sur internet (Google, Pages Jaunes, l'annuaire des entreprises, le site officiel de l'organisme, un site de mairie si c'est une collectivité, etc.) le numéro de téléphone fixe professionnel de cet organisme en France :
 
 Nom : ${compte.raison_sociale || ""}
 Adresse : ${adresse || "non précisée"}
 Département : ${compte.departement || "non précisé"}
 
-Réponds uniquement avec le numéro au format français "0X XX XX XX XX" si tu es raisonnablement confiant qu'il correspond bien à cet organisme précis. Si tu n'es pas sûr ou ne trouves rien, telephone doit être null. N'invente jamais de numéro.`,
+Utilise activement les résultats de recherche internet fournis pour répondre, ne te contente pas de tes connaissances générales. Donne le meilleur numéro trouvé qui correspond à cet organisme précis (et pas un homonyme ou un autre établissement du même groupe), au format français "0X XX XX XX XX". Mets trouve à false uniquement si aucun numéro plausible n'apparaît dans les résultats de recherche.`,
       add_context_from_internet: true,
       response_json_schema: {
         type: "object",
         properties: {
-          telephone: { type: ["string", "null"], description: "Numéro de téléphone fixe au format 0X XX XX XX XX, ou null si non trouvé avec certitude" },
-          source: { type: ["string", "null"], description: "Brève indication de la source utilisée (ex: site officiel, annuaire, pages jaunes…)" },
+          trouve: { type: "boolean", description: "true si un numéro a été trouvé dans les résultats de recherche" },
+          telephone: { type: "string", description: "Numéro de téléphone fixe au format 0X XX XX XX XX ; chaîne vide si trouve est false" },
+          source: { type: "string", description: "Brève indication de la source (ex: site officiel, Pages Jaunes…) ; chaîne vide si trouve est false" },
         },
-        required: ["telephone"],
+        required: ["trouve", "telephone"],
       },
     });
-    return typeof res === "object" && res ? res : { telephone: null, source: null };
+
+    let data = res;
+    if (typeof data === "string") {
+      try { data = JSON.parse(data); } catch { data = null; }
+    }
+    // eslint-disable-next-line no-console
+    console.info("[rechercherTelephoneIA] réponse brute de l'IA :", res);
+
+    if (!data || typeof data !== "object" || !data.trouve || !data.telephone) {
+      return { telephone: null, source: null };
+    }
+    return { telephone: data.telephone, source: data.source || null };
   } catch (e) {
-    console.error(e);
+    console.error("[rechercherTelephoneIA] échec de l'appel IA :", e);
     return { telephone: null, source: null };
   }
 }

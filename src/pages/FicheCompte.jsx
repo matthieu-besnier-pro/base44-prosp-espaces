@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { StatutBadge, PotentielBadge, ScoreBadge, SegmentBadge } from "@/components/badges";
@@ -6,7 +6,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { toast } from "@/components/ui/use-toast";
 import {
   DEPARTEMENTS, PIPELINE_STEPS, pipelineAvancement, formatDateCourt, formatMontant,
-  TYPES_TACHE, PRIORITES,
+  TYPES_TACHE, PRIORITES, TYPES_INTERACTION, RESULTATS_INTERACTION,
 } from "@/lib/crm-constants";
 import {
   Phone, Mail, MapPin, ChevronLeft, Mic, Sparkles, CalendarPlus, X,
@@ -26,6 +26,7 @@ export default function FicheCompte() {
   const [loading, setLoading] = useState(true);
   const [resume, setResume] = useState(null);
   const [rdvOpen, setRdvOpen] = useState(false);
+  const [rapportOpen, setRapportOpen] = useState(false);
   const [activiteKey, setActiviteKey] = useState(0);
 
   useEffect(() => {
@@ -61,7 +62,8 @@ export default function FicheCompte() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleRdvCreated = () => {
+  const refreshAfterActivity = (patch) => {
+    if (patch) setCompte((c) => ({ ...c, ...patch }));
     loadResume();
     setActiviteKey((k) => k + 1);
   };
@@ -124,7 +126,7 @@ export default function FicheCompte() {
                 <MapPin className="h-3.5 w-3.5" /> Itinéraire
               </a>
             )}
-            <button className="flex items-center gap-1.5 rounded-lg bg-gd-yellow/90 px-3 py-2 text-xs font-bold text-gd-black active:scale-95">
+            <button onClick={() => setRapportOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-gd-yellow/90 px-3 py-2 text-xs font-bold text-gd-black active:scale-95">
               <Mic className="h-3.5 w-3.5" /> Rapport oral
             </button>
             <button onClick={() => setRdvOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white active:scale-95">
@@ -175,7 +177,15 @@ export default function FicheCompte() {
         <RdvModal
           compte={compte}
           onClose={() => setRdvOpen(false)}
-          onCreated={handleRdvCreated}
+          onCreated={refreshAfterActivity}
+        />
+      )}
+
+      {rapportOpen && (
+        <RapportOralModal
+          compte={compte}
+          onClose={() => setRapportOpen(false)}
+          onSaved={refreshAfterActivity}
         />
       )}
     </div>
@@ -248,6 +258,131 @@ function RdvModal({ compte, onClose, onCreated }) {
   );
 }
 
+function RapportOralModal({ compte, onClose, onSaved }) {
+  const [listening, setListening] = useState(false);
+  const [text, setText] = useState("");
+  const [type, setType] = useState("Visite");
+  const [resultat, setResultat] = useState("");
+  const [saving, setSaving] = useState(false);
+  const recognitionRef = useRef(null);
+  const SpeechRecognitionApi = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+
+  useEffect(() => {
+    if (!SpeechRecognitionApi) return;
+    const rec = new SpeechRecognitionApi();
+    rec.lang = "fr-FR";
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      let finalText = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      }
+      if (finalText.trim()) setText((prev) => (prev ? prev + " " : "") + finalText.trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    return () => {
+      try { rec.stop(); } catch (e) { /* noop */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+    if (listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    } else {
+      recognitionRef.current.start();
+      setListening(true);
+    }
+  };
+
+  const save = async () => {
+    if (!text.trim()) return;
+    setSaving(true);
+    try {
+      const now = new Date().toISOString();
+      await base44.entities.Interaction.create({
+        compte_id: compte.id,
+        type,
+        date_heure: now,
+        resultat: resultat || undefined,
+        compte_rendu: text.trim(),
+        transcription: text.trim(),
+        statut_validation: "Validé",
+      });
+      const dateContact = now.split("T")[0];
+      await base44.entities.Compte.update(compte.id, { date_dernier_contact: dateContact });
+      toast({ title: "Rapport enregistré", description: "L'interaction a été ajoutée à l'historique." });
+      onSaved({ date_dernier_contact: dateContact });
+      onClose();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "L'enregistrement a échoué.", variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 lg:items-center lg:p-4" onClick={onClose}>
+      <div className="w-full max-w-md animate-slide-up rounded-t-2xl bg-white p-5 lg:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="gd-title text-sm text-gd-blue">Rapport oral</h3>
+          <button onClick={onClose}><X className="h-4 w-4 text-slate-400" /></button>
+        </div>
+
+        {SpeechRecognitionApi ? (
+          <div className="mb-4 flex flex-col items-center">
+            <button
+              type="button"
+              onClick={toggleListening}
+              className={`flex h-16 w-16 items-center justify-center rounded-full text-white transition active:scale-95 ${
+                listening ? "animate-pulse bg-gd-danger" : "bg-gd-blue"
+              }`}
+            >
+              <Mic className="h-7 w-7" />
+            </button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {listening ? "Écoute en cours… touchez pour arrêter" : "Touchez pour dicter votre compte-rendu"}
+            </p>
+          </div>
+        ) : (
+          <p className="mb-3 rounded-lg bg-gd-ice p-2.5 text-xs text-muted-foreground">
+            La dictée vocale n'est pas disponible sur ce navigateur. Saisissez votre compte-rendu ci-dessous.
+          </p>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Compte-rendu</label>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={5}
+              placeholder="Dictez ou saisissez votre compte-rendu…"
+              className="w-full rounded-lg border border-gd-mist/60 px-3 py-2 text-sm outline-none focus:border-gd-blue"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="Type" value={type} onChange={setType} options={TYPES_INTERACTION} />
+            <SelectField label="Résultat" value={resultat} onChange={setResultat} options={RESULTATS_INTERACTION} allowEmpty />
+          </div>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-lg border border-gd-mist/60 py-2.5 text-sm font-medium">Annuler</button>
+          <button onClick={save} disabled={saving || !text.trim()} className="flex-1 rounded-lg bg-gd-blue py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+            {saving ? "Enregistrement…" : "Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, value, onChange, type }) {
   return (
     <div>
@@ -257,11 +392,12 @@ function Field({ label, value, onChange, type }) {
   );
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, allowEmpty }) {
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
       <select value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border border-gd-mist/60 px-3 text-sm outline-none focus:border-gd-blue">
+        {allowEmpty && <option value="">—</option>}
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
