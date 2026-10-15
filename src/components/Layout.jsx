@@ -9,13 +9,13 @@ import {
   LayoutDashboard,
   Settings,
   Plus,
-  Search,
-  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import SaisieExpress from "@/components/SaisieExpress";
 import BrandMark from "@/components/BrandMark";
 import ChatBot from "@/components/ChatBot";
+import HeaderSearch from "@/components/HeaderSearch";
+import HeaderUserMenu from "@/components/HeaderUserMenu";
 
 const NAV_MOBILE = [
   { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -31,7 +31,6 @@ const NAV_DESKTOP_EXTRA = [
 ];
 
 export default function Layout() {
-  const { user, logout } = useAuth();
   const location = useLocation();
   const [plusOpen, setPlusOpen] = useState(false);
 
@@ -51,26 +50,6 @@ export default function Layout() {
             <NavItem key={item.to} {...item} />
           ))}
         </nav>
-        <div className="border-t border-white/10 p-3">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2 text-white/80">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs font-semibold">
-              {(user?.full_name || user?.email || "U").charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-semibold text-white">
-                {user?.full_name || user?.email || "Utilisateur"}
-              </div>
-              <div className="truncate text-[10px] text-white/60">{user?.role || ""}</div>
-            </div>
-            <button
-              onClick={() => logout()}
-              className="rounded-md p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
-              title="Déconnexion"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* Main content */}
@@ -80,14 +59,10 @@ export default function Layout() {
           <div className="lg:hidden">
             <BrandMark variant="dark" />
           </div>
-          <div className="relative ml-auto w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un client, une ville, un SIREN…"
-              className="h-10 w-full rounded-lg border border-gd-mist/60 bg-gd-ice pl-9 pr-3 text-sm outline-none focus:border-gd-blue focus:ring-2 focus:ring-gd-blue/10"
-            />
+          <div className="min-w-0 flex-1 lg:ml-auto lg:max-w-md">
+            <HeaderSearch />
           </div>
+          <HeaderUserMenu />
         </header>
 
         <main className="min-h-[calc(100vh-4rem)] pb-24 lg:pb-8"><Outlet /></main>
