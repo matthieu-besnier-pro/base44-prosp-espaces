@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
-import { StatutBadge, PotentielBadge, ScoreBadge, SegmentBadge } from "@/components/badges";
+import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
 import {
-  FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE,
+  FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE, pipelineAvancement,
 } from "@/lib/crm-constants";
 import { exportCsv, deptLabel } from "@/lib/crm-helpers";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
-  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown,
+  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles,
 } from "lucide-react";
 
 const PAGE_SIZE = 50;
@@ -63,7 +64,7 @@ export default function Comptes() {
           sort: "-score",
           limit: PAGE_SIZE,
           cursor: resetCursor,
-          fields: ["raison_sociale", "ville", "code_postal", "departement", "segment", "famille", "statut", "potentiel", "score", "telephone_1"],
+          fields: ["raison_sociale", "ville", "code_postal", "departement", "segment", "famille", "statut", "potentiel", "score", "telephone_1", "date_dernier_contact", "resume_ia"],
         }),
         base44.entities.Compte.count(q),
       ]);
@@ -177,10 +178,26 @@ export default function Comptes() {
         ) : comptes.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {comptes.map((c) => (
-              <CompteCard key={c.id} compte={c} onClick={() => navigate(`/comptes/${c.id}`)} />
-            ))}
+          <div className="overflow-hidden rounded-xl border border-gd-mist/50 bg-white shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-gd-mist/40 hover:bg-transparent">
+                  <TableHead className="min-w-[220px]">Compte</TableHead>
+                  <TableHead className="hidden lg:table-cell">Segment</TableHead>
+                  <TableHead className="min-w-[160px]">Avancement</TableHead>
+                  <TableHead className="hidden sm:table-cell">Potentiel</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead className="hidden md:table-cell">Dernier contact</TableHead>
+                  <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
+                  <TableHead className="w-8" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {comptes.map((c) => (
+                  <CompteRow key={c.id} compte={c} onClick={() => navigate(`/comptes/${c.id}`)} />
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
 
@@ -217,34 +234,66 @@ function FilterSelect({ label, value, onChange, options, rawOptions }) {
   );
 }
 
-function CompteCard({ compte, onClick }) {
+function CompteRow({ compte, onClick }) {
+  const av = pipelineAvancement(compte.statut || "À qualifier");
+  const barColor = av.special === "Perdu" ? "bg-gd-danger" : av.special === "Hors cible" ? "bg-zinc-300" : "bg-gd-blue";
+
   return (
-    <button onClick={onClick} className="group flex flex-col rounded-xl border border-gd-mist/50 bg-white p-4 text-left shadow-sm transition hover:border-gd-blue/30 hover:shadow-md">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 shrink-0 text-gd-blue" />
-            <h3 className="truncate text-sm font-semibold">{compte.raison_sociale}</h3>
+    <TableRow onClick={onClick} className="cursor-pointer border-gd-mist/30 hover:bg-gd-ice">
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gd-ice text-gd-blue">
+            <Building2 className="h-4 w-4" />
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3" />
-            <span className="truncate">{compte.ville || "—"} {compte.departement ? `(${compte.departement})` : ""}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-semibold">{compte.raison_sociale}</span>
+              {compte.resume_ia && (
+                <Sparkles className="h-3 w-3 shrink-0 text-gd-yellow" aria-label="Analyse IA disponible" />
+              )}
+            </div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{compte.ville || "—"} {compte.departement ? `(${compte.departement})` : ""}</span>
+            </div>
           </div>
         </div>
-        <ScoreBadge score={compte.score} />
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <StatutBadge statut={compte.statut || "À qualifier"} />
-        {compte.segment && <SegmentBadge segment={compte.segment} />}
+      </TableCell>
+      <TableCell className="hidden lg:table-cell">
+        <span className="text-xs text-muted-foreground">{compte.segment || "—"}</span>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gd-ice">
+            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${av.pct}%` }} />
+          </div>
+          <StatutBadge statut={compte.statut || "À qualifier"} />
+        </div>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
         <PotentielBadge potentiel={compte.potentiel} />
-      </div>
-      {compte.telephone_1 && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Phone className="h-3 w-3" />
-          {compte.telephone_1}
-        </div>
-      )}
-    </button>
+      </TableCell>
+      <TableCell>
+        <ScoreBadge score={compte.score} />
+      </TableCell>
+      <TableCell className="hidden whitespace-nowrap text-xs text-muted-foreground md:table-cell">
+        {compte.date_dernier_contact
+          ? new Date(compte.date_dernier_contact).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+          : "Jamais"}
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        {compte.telephone_1 ? (
+          <span className="flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+            <Phone className="h-3 w-3" /> {compte.telephone_1}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-300">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <ChevronRight className="h-4 w-4 text-slate-300" />
+      </TableCell>
+    </TableRow>
   );
 }
 

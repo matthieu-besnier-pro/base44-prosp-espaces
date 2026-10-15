@@ -22,6 +22,31 @@ export const STATUT_COULEUR = {
   "Hors cible": { bg: "bg-zinc-200", text: "text-zinc-600", dot: "bg-zinc-400" },
 };
 
+// Étapes principales du cycle de prospection (hors issues terminales Perdu/Hors cible)
+export const PIPELINE_STEPS = [
+  "À qualifier",
+  "Prospect",
+  "Contacté",
+  "RDV planifié",
+  "Offre en cours",
+  "Client",
+];
+
+// Avancement d'un compte dans le cycle de prospection, pour affichage (barre, stepper)
+export function pipelineAvancement(statut) {
+  if (statut === "Perdu" || statut === "Hors cible") {
+    return { index: -1, total: PIPELINE_STEPS.length, pct: statut === "Perdu" ? 100 : 0, special: statut };
+  }
+  const idx = PIPELINE_STEPS.indexOf(statut);
+  const i = idx === -1 ? 0 : idx;
+  return {
+    index: i,
+    total: PIPELINE_STEPS.length,
+    pct: Math.round(((i + 1) / PIPELINE_STEPS.length) * 100),
+    special: null,
+  };
+}
+
 export const FAMILLES = ["Espaces verts", "Collectivité"];
 
 export const SEGMENTS = [

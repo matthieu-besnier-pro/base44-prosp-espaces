@@ -67,14 +67,6 @@ export default function InfosTab({ compte, onUpdate }) {
         </div>
       </Section>
 
-      {form.resume_ia && (
-        <Section title="Synthèse IA">
-          <div className="rounded-lg bg-gd-yellow/5 border border-gd-yellow/20 p-3">
-            <p className="text-sm text-foreground/80">{form.resume_ia}</p>
-          </div>
-        </Section>
-      )}
-
       <div className="sticky bottom-20 flex justify-end lg:bottom-4">
         <button onClick={save} disabled={saving} className="flex items-center gap-2 rounded-lg bg-gd-blue px-5 py-2.5 text-sm font-semibold text-white shadow-lg disabled:opacity-50">
           <Save className="h-4 w-4" /> {saved ? "Enregistré ✓" : saving ? "Enregistrement…" : "Enregistrer"}

@@ -6,7 +6,7 @@ import { SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE } from "@/lib/crm-co
 import { toast } from "@/components/ui/use-toast";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from "react-leaflet";
 import {
-  Search, MapPin, Phone, Plus, X, ChevronUp, ChevronDown, Route, CalendarDays, Check,
+  Search, MapPin, Phone, Plus, X, ChevronUp, ChevronDown, Route, CalendarDays, Check, Sparkles,
 } from "lucide-react";
 
 function todayIso() {
@@ -21,6 +21,9 @@ export default function OrganiserJournee() {
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState([]); // comptes de la tournée, dans l'ordre
   const [saving, setSaving] = useState(false);
+  const [iaSecteur, setIaSecteur] = useState("");
+  const [iaNombre, setIaNombre] = useState(5);
+  const [iaLoading, setIaLoading] = useState(false);
 
   const buildQuery = useMemo(() => {
     return () => {
@@ -88,6 +91,34 @@ export default function OrganiserJournee() {
 
   const mapCenter = positions.length > 0 ? positions[0] : [46.0, 0.3];
 
+  const genererTourneeIA = async () => {
+    setIaLoading(true);
+    try {
+      const q = {};
+      if (iaSecteur) q.departement = iaSecteur;
+      const res = await base44.entities.Compte.filter(q, {
+        sort: "-score",
+        limit: iaNombre,
+        fields: [
+          "raison_sociale", "ville", "departement", "segment", "statut", "potentiel",
+          "score", "telephone_1", "latitude", "longitude",
+        ],
+      });
+      const items = res.items || res;
+      setSelection(items);
+      toast({
+        title: "Tournée proposée par l'IA",
+        description: items.length > 0
+          ? `${items.length} compte${items.length > 1 ? "s" : ""} à plus fort potentiel sélectionné${items.length > 1 ? "s" : ""}.`
+          : "Aucun compte ne correspond à ce secteur pour le moment.",
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La proposition IA a échoué.", variant: "destructive" });
+    }
+    setIaLoading(false);
+  };
+
   const handlePlanifier = async () => {
     if (selection.length === 0) return;
     setSaving(true);
@@ -119,6 +150,55 @@ export default function OrganiserJournee() {
       <PageTitle subtitle="Sélectionnez les comptes à visiter et planifiez votre tournée">
         Organiser une journée de prospection
       </PageTitle>
+
+      <div className="p-4 lg:p-8 lg:pb-0">
+        <div className="rounded-xl border border-gd-yellow/30 bg-gd-yellow/5 p-4">
+          <div className="flex items-center gap-2 text-gd-navy">
+            <Sparkles className="h-5 w-5 text-gd-yellow" />
+            <h2 className="gd-title text-sm">Proposition de tournée par l'IA</h2>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            L'IA sélectionne automatiquement les comptes à plus fort score de priorité pour composer votre tournée.
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Secteur</label>
+              <div className="relative">
+                <select
+                  value={iaSecteur}
+                  onChange={(e) => setIaSecteur(e.target.value)}
+                  className="h-11 appearance-none rounded-lg border border-gd-mist/60 bg-white pl-3 pr-7 text-sm outline-none focus:border-gd-blue"
+                >
+                  <option value="">Tous secteurs</option>
+                  {DEPARTEMENTS.map((d) => (
+                    <option key={d.code} value={d.code}>{d.code} {d.nom}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Nombre de RDV</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={iaNombre}
+                onChange={(e) => setIaNombre(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                className="h-11 w-24 rounded-lg border border-gd-mist/60 bg-white px-3 text-sm outline-none focus:border-gd-blue"
+              />
+            </div>
+            <button
+              onClick={genererTourneeIA}
+              disabled={iaLoading}
+              className="flex h-11 items-center gap-2 rounded-lg bg-gd-navy px-4 text-sm font-bold text-white shadow-sm active:scale-[0.98] disabled:opacity-50"
+            >
+              <Sparkles className="h-4 w-4" />
+              {iaLoading ? "Génération…" : "Générer avec l'IA"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-4 p-4 lg:grid-cols-[1fr_380px] lg:p-8">
         {/* Candidats */}
