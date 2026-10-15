@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { StatutBadge, PotentielBadge, ScoreBadge, SegmentBadge } from "@/components/badges";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import {
   DEPARTEMENTS, PIPELINE_STEPS, pipelineAvancement, formatDateCourt, formatMontant,
 } from "@/lib/crm-constants";
 import {
-  Phone, Mail, MapPin, ChevronLeft, Mic, Sparkles, Target, Zap,
-  TrendingUp, ListChecks, Clock, CheckCircle2, Circle,
+  Phone, Mail, MapPin, ChevronLeft, Mic, Sparkles,
+  TrendingUp, CheckCircle2, Circle,
   Activity, Users, Wrench, Settings,
 } from "lucide-react";
 import ActiviteTab from "@/components/fiche/ActiviteTab";
@@ -15,14 +16,6 @@ import ContactsTab from "@/components/fiche/ContactsTab";
 import OpportunitesTab from "@/components/fiche/OpportunitesTab";
 import ParcTab from "@/components/fiche/ParcTab";
 import InfosTab from "@/components/fiche/InfosTab";
-
-const SECTIONS = [
-  { id: "activite", label: "Activité", icon: Activity },
-  { id: "contacts", label: "Contacts", icon: Users },
-  { id: "opportunites", label: "Opportunités", icon: TrendingUp },
-  { id: "parc", label: "Parc", icon: Wrench },
-  { id: "infos", label: "Infos", icon: Settings },
-];
 
 export default function FicheCompte() {
   const { id } = useParams();
@@ -60,10 +53,6 @@ export default function FicheCompte() {
       }
     })();
   }, [id]);
-
-  const scrollTo = (sectionId) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   if (loading) {
     return (
@@ -130,85 +119,64 @@ export default function FicheCompte() {
         </div>
       </div>
 
-      {/* Quick-jump nav (tout reste visible sur la page, ceci ne fait que défiler) */}
-      <div className="sticky top-16 z-10 border-b border-gd-mist/40 bg-gd-ice/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 lg:px-8 gd-scrollbar-thin">
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => scrollTo(s.id)}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 py-3 text-sm font-medium text-muted-foreground transition hover:border-gd-blue hover:text-gd-blue"
-            >
-              <s.icon className="h-3.5 w-3.5" /> {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-5xl space-y-5 p-4 lg:p-8">
-        {/* KPIs */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MiniKpi icon={Target} label="Score de priorité" value={compte.score ?? "—"} accent="yellow" />
-          <MiniKpi icon={TrendingUp} label="Pipeline ouvert" value={formatMontant(resume?.pipelineOuvert ?? 0)} accent="blue" />
-          <MiniKpi icon={ListChecks} label="Tâches à faire" value={resume?.tachesAFaire ?? "—"} accent="blue" />
-          <MiniKpi icon={Clock} label="Dernier contact" value={compte.date_dernier_contact ? formatDateCourt(compte.date_dernier_contact) : "Jamais"} accent="yellow" />
+      <div className="mx-auto max-w-5xl space-y-4 p-4 lg:p-8">
+        {/* Aperçu compact : KPI + avancement en un seul bloc */}
+        <div className="rounded-xl border border-gd-mist/50 bg-white p-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <StatChip label="Score" value={compte.score ?? "—"} />
+            <StatChip label="Pipeline ouvert" value={formatMontant(resume?.pipelineOuvert ?? 0)} />
+            <StatChip label="Tâches" value={resume?.tachesAFaire ?? "—"} />
+            <StatChip label="Dernier contact" value={compte.date_dernier_contact ? formatDateCourt(compte.date_dernier_contact) : "Jamais"} />
+          </div>
+          <div className="mt-3 border-t border-gd-mist/30 pt-3">
+            <PipelineStepper statut={compte.statut} />
+          </div>
         </div>
 
-        {/* Avancement dans le cycle de prospection */}
-        <section className="rounded-xl border border-gd-mist/50 bg-white p-4">
-          <h2 className="gd-title mb-3 text-sm text-gd-blue">Avancement</h2>
-          <PipelineStepper statut={compte.statut} />
-        </section>
-
-        {/* Assistant IA */}
+        {/* Assistant IA — compact, invisible si rien à montrer */}
         <AiInsightPanel compte={compte} />
 
-        {/* Sections détaillées, toutes visibles sur la même page */}
-        <SectionBlock id="activite" icon={Activity} title="Activité & tâches">
-          <ActiviteTab compteId={id} />
-        </SectionBlock>
-
-        <SectionBlock id="contacts" icon={Users} title="Contacts">
-          <ContactsTab compteId={id} />
-        </SectionBlock>
-
-        <SectionBlock id="opportunites" icon={TrendingUp} title="Opportunités">
-          <OpportunitesTab compteId={id} />
-        </SectionBlock>
-
-        <SectionBlock id="parc" icon={Wrench} title="Parc matériel">
-          <ParcTab compteId={id} />
-        </SectionBlock>
-
-        <SectionBlock id="infos" icon={Settings} title="Informations générales">
-          <InfosTab compte={compte} onUpdate={setCompte} />
-        </SectionBlock>
+        {/* Détails, repliés par défaut pour rester lisible */}
+        <Accordion type="multiple" defaultValue={["activite"]} className="rounded-xl border border-gd-mist/50 bg-white">
+          <AccordionSection value="activite" icon={Activity} title="Activité & tâches">
+            <ActiviteTab compteId={id} />
+          </AccordionSection>
+          <AccordionSection value="contacts" icon={Users} title="Contacts">
+            <ContactsTab compteId={id} />
+          </AccordionSection>
+          <AccordionSection value="opportunites" icon={TrendingUp} title="Opportunités">
+            <OpportunitesTab compteId={id} />
+          </AccordionSection>
+          <AccordionSection value="parc" icon={Wrench} title="Parc matériel">
+            <ParcTab compteId={id} />
+          </AccordionSection>
+          <AccordionSection value="infos" icon={Settings} title="Informations générales">
+            <InfosTab compte={compte} onUpdate={setCompte} />
+          </AccordionSection>
+        </Accordion>
       </div>
     </div>
   );
 }
 
-function SectionBlock({ id, icon: Icon, title, children }) {
+function AccordionSection({ value, icon: Icon, title, children }) {
   return (
-    <section id={id} className="scroll-mt-32">
-      <div className="mb-3 flex items-center gap-2 text-gd-blue">
-        <Icon className="h-4 w-4" strokeWidth={2.2} />
-        <h2 className="gd-title text-sm">{title}</h2>
-      </div>
-      {children}
-    </section>
+    <AccordionItem value={value} className="border-gd-mist/40 px-4 last:border-b-0">
+      <AccordionTrigger className="gd-title text-sm text-gd-blue hover:no-underline">
+        <span className="flex items-center gap-2">
+          <Icon className="h-4 w-4" strokeWidth={2.2} /> {title}
+        </span>
+      </AccordionTrigger>
+      <AccordionContent>{children}</AccordionContent>
+    </AccordionItem>
   );
 }
 
-function MiniKpi({ icon: Icon, label, value, accent }) {
-  const accentClass = accent === "yellow" ? "bg-gd-yellow text-gd-black" : "bg-gd-blue text-white";
+function StatChip({ label, value }) {
   return (
-    <div className="rounded-xl border border-gd-mist/50 bg-white p-4">
-      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accentClass}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="gd-tabular mt-3 text-xl font-extrabold text-foreground">{value}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="flex items-baseline gap-1.5">
+      <span className="gd-tabular text-base font-extrabold text-gd-blue">{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   );
 }
@@ -250,42 +218,28 @@ function PipelineStepper({ statut }) {
 
 function AiInsightPanel({ compte }) {
   const hasInsights = compte.resume_ia || compte.angle_approche_ia || (compte.signaux_ia && compte.signaux_ia.length > 0);
+  if (!hasInsights) return null;
 
   return (
-    <section className="rounded-xl border border-gd-yellow/30 bg-gd-yellow/5 p-4">
-      <div className="flex items-center gap-2 text-gd-navy">
-        <Sparkles className="h-5 w-5 text-gd-yellow" />
-        <h2 className="gd-title text-sm">Assistant IA</h2>
-        {compte.date_maj_ia && (
-          <span className="ml-auto text-[11px] font-normal text-muted-foreground">
-            Analyse du {formatDateCourt(compte.date_maj_ia)}
-          </span>
-        )}
-      </div>
-      {!hasInsights ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          L'IA n'a pas encore généré d'analyse pour ce client. Elle se mettra à jour après les prochaines interactions.
-        </p>
-      ) : (
-        <div className="mt-3 space-y-2.5">
-          {compte.resume_ia && <p className="text-sm text-foreground/80">{compte.resume_ia}</p>}
+    <section className="rounded-xl border border-gd-yellow/30 bg-gd-yellow/5 p-3">
+      <div className="flex items-start gap-2">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gd-yellow" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          {compte.resume_ia && <p className="line-clamp-2 text-sm text-foreground/80">{compte.resume_ia}</p>}
           {compte.angle_approche_ia && (
-            <div className="flex items-start gap-2 rounded-lg bg-white/70 p-2.5 text-xs">
-              <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gd-blue" />
-              <span><strong className="font-semibold text-gd-blue">Angle d'approche : </strong>{compte.angle_approche_ia}</span>
-            </div>
+            <p className="text-xs"><strong className="font-semibold text-gd-blue">Angle : </strong>{compte.angle_approche_ia}</p>
           )}
           {compte.signaux_ia?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {compte.signaux_ia.map((s, i) => (
-                <span key={i} className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-[11px] font-medium text-gd-navy shadow-sm">
-                  <Zap className="h-3 w-3 text-gd-yellow" /> {s}
+            <div className="flex flex-wrap gap-1">
+              {compte.signaux_ia.slice(0, 4).map((s, i) => (
+                <span key={i} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-gd-navy shadow-sm">
+                  {s}
                 </span>
               ))}
             </div>
           )}
         </div>
-      )}
+      </div>
     </section>
   );
 }
