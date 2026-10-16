@@ -22,15 +22,14 @@ export default function ChatBot() {
   const chargerContexte = async () => {
     try {
       const todayStr = new Date().toISOString().split("T")[0];
-      const [total, clientsCount, jamaisContactes, tachesRetard] = await Promise.all([
+      const [total, clientsCount, tachesRetard] = await Promise.all([
         base44.entities.Compte.count({}),
         base44.entities.Compte.count({ statut: "Client" }),
-        base44.entities.Compte.count({ date_dernier_contact: { $exists: false } }),
         base44.entities.Tache.count({ statut: "À faire", echeance: { $lt: todayStr } }),
       ]);
-      setContexte({ total, clientsCount, jamaisContactes, tachesRetard });
+      setContexte({ total, clientsCount, tachesRetard });
     } catch (e) {
-      console.error(e);
+      console.error("[ChatBot] échec du chargement du contexte :", e);
       setContexte({});
     }
   };
@@ -58,11 +57,21 @@ ${fil}
 
 Réponds uniquement au dernier message du commercial.`,
       });
-      const reponse = typeof res === "string" ? res : res?.response || res?.text || JSON.stringify(res);
+      // eslint-disable-next-line no-console
+      console.info("[ChatBot] réponse brute de l'IA :", res);
+      const reponse =
+        typeof res === "string" ? res
+        : res?.response || res?.text || res?.content || res?.message || res?.answer
+        || (res ? JSON.stringify(res) : null)
+        || "Je n'ai pas obtenu de réponse exploitable. Réessayez votre question autrement.";
       setMessages((prev) => [...prev, { role: "assistant", content: reponse }]);
     } catch (e) {
-      console.error(e);
-      setMessages((prev) => [...prev, { role: "assistant", content: "Désolé, une erreur est survenue. Réessayez dans un instant." }]);
+      console.error("[ChatBot] échec de l'appel IA :", e);
+      const detail = e?.message || e?.data?.message || e?.data?.error || "";
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `Désolé, une erreur est survenue${detail ? ` (${detail})` : ""}. Réessayez dans un instant.`,
+      }]);
     }
     setSending(false);
   };
