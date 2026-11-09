@@ -1,41 +1,66 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
 import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
 import {
-  FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE, pipelineAvancement,
+  FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE, pipelineAvancement, TEMPERATURE_COULEUR,
 } from "@/lib/crm-constants";
 import { exportCsv, deptLabel, rechercherTelephoneIA } from "@/lib/crm-helpers";
 import { toast } from "@/components/ui/use-toast";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
-  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles,
+  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles, FileText,
 } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
+// Classement des températures pour le tri "par rapport" (le plus chaud/récent en premier)
+const RANG_TEMPERATURE = { Chaud: 3, Tiède: 2, Froid: 1, "": 0 };
+
 export default function Comptes() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [comptes, setComptes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [rechercheTel, setRechercheTel] = useState({ actif: false, fait: 0, total: 0, succes: 0 });
+  const [rapportsParCompte, setRapportsParCompte] = useState({});
   const abortTelRef = useRef(false);
+  const requestIdRef = useRef(0);
 
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({
-    famille: "",
-    segment: "",
-    departement: "",
-    statut: "",
-    potentiel: "",
-    sansTel: false,
-    jamaisContacte: false,
-  });
+  // Les filtres/recherche/tri sont initialisés depuis l'URL et resynchronisés vers elle
+  // ci-dessous : ça permet de revenir sur la liste (ex. retour depuis une fiche client)
+  // en retrouvant exactement le même filtrage, au lieu de repartir de zéro à chaque fois.
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
+  const [filters, setFilters] = useState(() => ({
+    famille: searchParams.get("famille") || "",
+    segment: searchParams.get("segment") || "",
+    departement: searchParams.get("departement") || "",
+    statut: searchParams.get("statut") || "",
+    potentiel: searchParams.get("potentiel") || "",
+    sansTel: searchParams.get("sansTel") === "1",
+    jamaisContacte: searchParams.get("jamaisContacte") === "1",
+  }));
+  const [sortMode, setSortMode] = useState(() => searchParams.get("tri") || "score");
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const params = {};
+    if (search) params.q = search;
+    if (filters.famille) params.famille = filters.famille;
+    if (filters.segment) params.segment = filters.segment;
+    if (filters.departement) params.departement = filters.departement;
+    if (filters.statut) params.statut = filters.statut;
+    if (filters.potentiel) params.potentiel = filters.potentiel;
+    if (filters.sansTel) params.sansTel = "1";
+    if (filters.jamaisContacte) params.jamaisContacte = "1";
+    if (sortMode !== "score") params.tri = sortMode;
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, filters, sortMode]);
 
   const buildQuery = useMemo(() => {
     return () => {
@@ -58,7 +83,34 @@ export default function Comptes() {
     };
   }, [filters, search]);
 
+  // Récupère, pour un lot de comptes, s'ils ont au moins un rapport de contact et le plus
+  // récent (température, date) — utilisé pour le TAG "Rapport" et le tri par rapport.
+  const chargerRapports = async (ids) => {
+    if (ids.length === 0) return;
+    try {
+      const res = await base44.entities.RapportContact.filter(
+        { $or: ids.map((id) => ({ compte_id: id })) },
+        { sort: "-date_heure", limit: 500, fields: ["compte_id", "temperature", "date_heure"] }
+      );
+      const items = res.items || res;
+      setRapportsParCompte((prev) => {
+        const next = { ...prev };
+        for (const r of items) {
+          if (!next[r.compte_id]) {
+            next[r.compte_id] = { count: 1, derniereTemperature: r.temperature || "", derniereDate: r.date_heure };
+          } else {
+            next[r.compte_id] = { ...next[r.compte_id], count: next[r.compte_id].count + 1 };
+          }
+        }
+        return next;
+      });
+    } catch (e) {
+      console.error("[rapports] échec du chargement groupé", e);
+    }
+  };
+
   const loadComptes = async (resetCursor = null) => {
+    const myRequestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const q = buildQuery();
@@ -71,14 +123,19 @@ export default function Comptes() {
         }),
         base44.entities.Compte.count(q),
       ]);
-      setComptes(resetCursor ? [...comptes, ...page.items] : page.items);
+      // Une requête plus récente a déjà été lancée entre-temps (filtre changé pendant
+      // le chargement) : on jette cette réponse pour éviter qu'elle n'écrase le résultat
+      // à jour avec des données périmées (l'ancien filtre resterait sinon affiché).
+      if (myRequestId !== requestIdRef.current) return;
+      setComptes((prev) => (resetCursor ? [...prev, ...page.items] : page.items));
       setCursor(page.next_cursor);
       setHasMore(page.has_more);
       setTotal(count);
+      chargerRapports(page.items.map((c) => c.id));
     } catch (e) {
       console.error(e);
     }
-    setLoading(false);
+    if (myRequestId === requestIdRef.current) setLoading(false);
   };
 
   useEffect(() => {
@@ -88,6 +145,24 @@ export default function Comptes() {
   }, [filters, search]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  // Tri par rapport : ne s'applique qu'à la page actuellement chargée (pas de champ
+  // dénormalisé côté Compte pour trier ça côté serveur) — même logique de tri "best
+  // effort" que l'optimisation de trajet de Ma Journée, assumée et documentée ici.
+  const comptesAffiches = useMemo(() => {
+    if (sortMode !== "rapport") return comptes;
+    return [...comptes].sort((a, b) => {
+      const ra = rapportsParCompte[a.id];
+      const rb = rapportsParCompte[b.id];
+      if (!ra && !rb) return 0;
+      if (!ra) return 1;
+      if (!rb) return -1;
+      const rangA = RANG_TEMPERATURE[ra.derniereTemperature || ""] ?? 0;
+      const rangB = RANG_TEMPERATURE[rb.derniereTemperature || ""] ?? 0;
+      if (rangA !== rangB) return rangB - rangA;
+      return new Date(rb.derniereDate || 0) - new Date(ra.derniereDate || 0);
+    });
+  }, [comptes, sortMode, rapportsParCompte]);
 
   const handlePhoneFound = (id, telephone) => {
     setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, telephone_1: telephone } : c)));
@@ -220,6 +295,18 @@ export default function Comptes() {
               </span>
             )}
           </button>
+          <div className="relative hidden sm:block">
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border border-gd-mist/60 bg-white pl-3 pr-8 text-sm text-slate-600 outline-none focus:border-gd-blue"
+              title="Trier la liste"
+            >
+              <option value="score">Trier par score</option>
+              <option value="rapport">Trier par rapport (chaud en 1er)</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </div>
           <button
             onClick={handleExport}
             className="flex h-11 items-center gap-2 rounded-lg border border-gd-mist/60 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-gd-ice"
@@ -311,8 +398,8 @@ export default function Comptes() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {comptes.map((c) => (
-                  <CompteRow key={c.id} compte={c} onClick={() => navigate(`/comptes/${c.id}`)} onPhoneFound={handlePhoneFound} />
+                {comptesAffiches.map((c) => (
+                  <CompteRow key={c.id} compte={c} rapportInfo={rapportsParCompte[c.id]} onClick={() => navigate(`/comptes/${c.id}`)} onPhoneFound={handlePhoneFound} />
                 ))}
               </TableBody>
             </Table>
@@ -352,7 +439,7 @@ function FilterSelect({ label, value, onChange, options, rawOptions }) {
   );
 }
 
-function CompteRow({ compte, onClick, onPhoneFound }) {
+function CompteRow({ compte, rapportInfo, onClick, onPhoneFound }) {
   const av = pipelineAvancement(compte.statut || "À qualifier");
   const barColor = av.special === "Perdu" ? "bg-gd-danger" : av.special ? "bg-zinc-300" : "bg-gd-blue";
 
@@ -368,6 +455,14 @@ function CompteRow({ compte, onClick, onPhoneFound }) {
               <span className="truncate text-sm font-semibold">{compte.raison_sociale}</span>
               {compte.resume_ia && (
                 <Sparkles className="h-3 w-3 shrink-0 text-gd-yellow" aria-label="Analyse IA disponible" />
+              )}
+              {rapportInfo && (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${TEMPERATURE_COULEUR[rapportInfo.derniereTemperature] || "bg-slate-100 text-slate-600"}`}
+                  title={`${rapportInfo.count} rapport${rapportInfo.count > 1 ? "s" : ""}${rapportInfo.derniereTemperature ? " · " + rapportInfo.derniereTemperature : ""}`}
+                >
+                  <FileText className="h-2.5 w-2.5" /> Rapport
+                </span>
               )}
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
