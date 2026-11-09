@@ -6,7 +6,7 @@ import { StatutBadge, PotentielBadge, ScoreBadge } from "@/components/badges";
 import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, POTENTIELS, STATUTS_COMPTE, pipelineAvancement, TEMPERATURE_COULEUR,
 } from "@/lib/crm-constants";
-import { exportCsv, deptLabel, rechercherTelephoneIA } from "@/lib/crm-helpers";
+import { exportCsv, deptLabel, rechercherTelephoneIA, statutApresNumeroTrouve } from "@/lib/crm-helpers";
 import { toast } from "@/components/ui/use-toast";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
@@ -164,8 +164,8 @@ export default function Comptes() {
     });
   }, [comptes, sortMode, rapportsParCompte]);
 
-  const handlePhoneFound = (id, telephone) => {
-    setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, telephone_1: telephone } : c)));
+  const handlePhoneFound = (id, telephone, statut) => {
+    setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, telephone_1: telephone, ...(statut ? { statut } : {}) } : c)));
   };
 
   // Requête de base (famille/segment/département/statut/potentiel/recherche), sans la
@@ -201,7 +201,7 @@ export default function Comptes() {
         const page = await base44.entities.Compte.filter(q, {
           limit: 200,
           cursor,
-          fields: ["raison_sociale", "adresse", "code_postal", "ville", "departement", "segment", "telephone_1"],
+          fields: ["raison_sociale", "adresse", "code_postal", "ville", "departement", "segment", "telephone_1", "statut"],
         });
         const items = page.items || page;
         tous = tous.concat(items);
@@ -227,9 +227,10 @@ export default function Comptes() {
           const { telephone } = await rechercherTelephoneIA(c);
           if (telephone) {
             try {
-              await base44.entities.Compte.update(c.id, { telephone_1: telephone });
+              const statut = statutApresNumeroTrouve(c.statut, c.statut);
+              await base44.entities.Compte.update(c.id, { telephone_1: telephone, statut });
               succes++;
-              handlePhoneFound(c.id, telephone);
+              handlePhoneFound(c.id, telephone, statut);
             } catch (e) { console.error("[recherche téléphone IA] échec de l'enregistrement", c.raison_sociale, e); }
           }
           fait++;
@@ -519,8 +520,9 @@ function ChercherTelephoneButton({ compte, onFound }) {
     try {
       const { telephone, source } = await rechercherTelephoneIA(compte);
       if (telephone) {
-        await base44.entities.Compte.update(compte.id, { telephone_1: telephone });
-        onFound(compte.id, telephone);
+        const statut = statutApresNumeroTrouve(compte.statut, compte.statut);
+        await base44.entities.Compte.update(compte.id, { telephone_1: telephone, statut });
+        onFound(compte.id, telephone, statut);
         toast({
           title: "Numéro trouvé et enregistré",
           description: `${compte.raison_sociale} : ${telephone}${source ? " · " + source : ""}`,

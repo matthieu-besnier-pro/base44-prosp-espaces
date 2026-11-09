@@ -160,8 +160,11 @@ export default function FicheCompte() {
         {/* Assistant IA — compact, invisible si rien à montrer */}
         <AiInsightPanel compte={compte} />
 
-        {/* Détails, repliés par défaut pour rester lisible */}
-        <Accordion type="multiple" defaultValue={["activite"]} className="rounded-xl border border-gd-mist/50 bg-white">
+        {/* Infos client en priorité (ouvertes par défaut) ; le reste reste replié pour rester lisible */}
+        <Accordion type="multiple" defaultValue={["infos", "activite"]} className="rounded-xl border border-gd-mist/50 bg-white">
+          <AccordionSection value="infos" icon={Settings} title="Informations générales">
+            <InfosTab compte={compte} onUpdate={setCompte} />
+          </AccordionSection>
           <AccordionSection value="activite" icon={Activity} title="Activité & tâches" count={counts.activite}>
             <ActiviteTab key={activiteKey} compteId={id} onCount={setCount("activite")} />
           </AccordionSection>
@@ -176,9 +179,6 @@ export default function FicheCompte() {
           </AccordionSection>
           <AccordionSection value="parc" icon={Wrench} title="Parc matériel" count={counts.parc}>
             <ParcTab compteId={id} onCount={setCount("parc")} />
-          </AccordionSection>
-          <AccordionSection value="infos" icon={Settings} title="Informations générales">
-            <InfosTab compte={compte} onUpdate={setCompte} />
           </AccordionSection>
         </Accordion>
       </div>

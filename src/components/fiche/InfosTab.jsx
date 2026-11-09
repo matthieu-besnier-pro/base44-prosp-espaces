@@ -4,7 +4,7 @@ import {
   FAMILLES, SEGMENTS, DEPARTEMENTS, STATUTS_COMPTE, POTENTIELS,
   CONCESSIONS, SOURCES, CONSENTEMENTS,
 } from "@/lib/crm-constants";
-import { calculerScore, rechercheTelephoneUrl, rechercherTelephoneIA, geocoderAdresse } from "@/lib/crm-helpers";
+import { calculerScore, rechercheTelephoneUrl, rechercherTelephoneIA, geocoderAdresse, statutApresNumeroTrouve } from "@/lib/crm-helpers";
 import { toast } from "@/components/ui/use-toast";
 import { ExternalLink, Save, Search, Sparkles, Navigation, MapPin } from "lucide-react";
 
@@ -35,6 +35,11 @@ export default function InfosTab({ compte, onUpdate }) {
     setSaving(true);
     try {
       const data = { ...form };
+      // Un numéro vient d'être renseigné sur un compte "Sans numéro" : il redevient
+      // "À qualifier" (sauf si l'utilisateur a lui-même choisi un autre statut).
+      if (data.telephone_1) {
+        data.statut = statutApresNumeroTrouve(compte.statut, data.statut);
+      }
       // Passage au statut "Contacté" : on date le dernier contact au jour du changement,
       // sauf si l'utilisateur a déjà saisi une date de dernier contact plus précise lui-même.
       if (data.statut === "Contacté" && compte.statut !== "Contacté") {

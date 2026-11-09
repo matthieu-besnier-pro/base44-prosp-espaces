@@ -322,3 +322,11 @@ Analyse ce texte et structure les informations qu'il contient. N'invente rien : 
     return vide;
   }
 }
+
+// Un compte "Sans numéro" redevient "À qualifier" dès qu'un téléphone vient d'être
+// renseigné, sauf si l'utilisateur a lui-même choisi un autre statut dans la même
+// opération (auquel cas on respecte son choix explicite).
+export function statutApresNumeroTrouve(statutActuel, statutSaisi = statutActuel) {
+  if (statutActuel === "Sans numéro" && statutSaisi === "Sans numéro") return "À qualifier";
+  return statutSaisi;
+}
