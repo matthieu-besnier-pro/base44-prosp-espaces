@@ -277,3 +277,48 @@ export function downloadIcs(filename, events) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Analyse la transcription brute d'un rapport de contact (dicté) via l'IA, et en
+// extrait les champs structurés du RapportContact. Ne renvoie jamais null : en cas
+// d'échec, renvoie un objet vide avec resume_ia = la transcription elle-même, pour
+// que le rapport reste exploitable (à relire manuellement) même sans analyse IA.
+export async function analyserRapportIA(transcription, compte) {
+  const vide = { resume_ia: transcription, contexte: "", besoins: "", materiel_en_place: "", concurrence: "", objections: "", engagements: "", prochaines_etapes: "", temperature: "" };
+  if (!transcription?.trim()) return vide;
+  try {
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Tu es un assistant pour une équipe commerciale de prospection (vente de matériel agricole et d'espaces verts). Voici la transcription brute d'un compte-rendu dicté par un commercial après un contact avec ce client : "${compte?.raison_sociale || ""}".
+
+Transcription :
+"""
+${transcription}
+"""
+
+Analyse ce texte et structure les informations qu'il contient. N'invente rien : si une information n'est pas mentionnée, renvoie une chaîne vide pour le champ concerné.`,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          resume_ia: { type: "string", description: "Résumé en 1 à 2 phrases de l'échange" },
+          contexte: { type: "string", description: "Contexte de la visite/de l'appel" },
+          besoins: { type: "string", description: "Besoins exprimés par le client" },
+          materiel_en_place: { type: "string", description: "Matériel actuellement en place chez le client, si mentionné" },
+          concurrence: { type: "string", description: "Concurrent(s) mentionné(s)" },
+          objections: { type: "string", description: "Objections ou freins exprimés" },
+          engagements: { type: "string", description: "Engagements pris de part et d'autre" },
+          prochaines_etapes: { type: "string", description: "Prochaines étapes évoquées" },
+          temperature: { type: "string", enum: ["Froid", "Tiède", "Chaud", ""], description: "Température du prospect ressentie à l'issue de l'échange" },
+        },
+        required: ["resume_ia"],
+      },
+    });
+    let data = res;
+    if (typeof data === "string") {
+      try { data = JSON.parse(data); } catch { data = null; }
+    }
+    if (!data || typeof data !== "object") return vide;
+    return { ...vide, ...data };
+  } catch (e) {
+    console.error("[analyserRapportIA] échec de l'analyse IA :", e);
+    return vide;
+  }
+}

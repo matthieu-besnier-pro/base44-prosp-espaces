@@ -6,17 +6,19 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { toast } from "@/components/ui/use-toast";
 import {
   DEPARTEMENTS, PIPELINE_STEPS, pipelineAvancement, formatDateCourt, formatMontant,
-  TYPES_TACHE, PRIORITES, TYPES_INTERACTION, RESULTATS_INTERACTION,
+  TYPES_TACHE, PRIORITES, TYPES_CONTACT_RAPPORT,
 } from "@/lib/crm-constants";
+import { analyserRapportIA } from "@/lib/crm-helpers";
 import {
   Phone, Mail, MapPin, ChevronLeft, Mic, Sparkles, CalendarPlus, X,
   TrendingUp, CheckCircle2, Circle,
-  Activity, Users, Wrench, Settings,
+  Activity, Users, Wrench, Settings, FileText,
 } from "lucide-react";
 import ActiviteTab from "@/components/fiche/ActiviteTab";
 import ContactsTab from "@/components/fiche/ContactsTab";
 import OpportunitesTab from "@/components/fiche/OpportunitesTab";
 import ParcTab from "@/components/fiche/ParcTab";
+import RapportsTab from "@/components/fiche/RapportsTab";
 import InfosTab from "@/components/fiche/InfosTab";
 
 export default function FicheCompte() {
@@ -28,6 +30,7 @@ export default function FicheCompte() {
   const [rdvOpen, setRdvOpen] = useState(false);
   const [rapportOpen, setRapportOpen] = useState(false);
   const [activiteKey, setActiviteKey] = useState(0);
+  const [rapportsKey, setRapportsKey] = useState(0);
   const [counts, setCounts] = useState({});
 
   const setCount = (key) => (n) => setCounts((c) => ({ ...c, [key]: n }));
@@ -69,6 +72,7 @@ export default function FicheCompte() {
     if (patch) setCompte((c) => ({ ...c, ...patch }));
     loadResume();
     setActiviteKey((k) => k + 1);
+    setRapportsKey((k) => k + 1);
   };
 
   if (loading) {
@@ -160,6 +164,9 @@ export default function FicheCompte() {
         <Accordion type="multiple" defaultValue={["activite"]} className="rounded-xl border border-gd-mist/50 bg-white">
           <AccordionSection value="activite" icon={Activity} title="Activité & tâches" count={counts.activite}>
             <ActiviteTab key={activiteKey} compteId={id} onCount={setCount("activite")} />
+          </AccordionSection>
+          <AccordionSection value="rapports" icon={FileText} title="Rapports" count={counts.rapports}>
+            <RapportsTab key={rapportsKey} compteId={id} onCount={setCount("rapports")} />
           </AccordionSection>
           <AccordionSection value="contacts" icon={Users} title="Contacts" count={counts.contacts}>
             <ContactsTab compteId={id} onCount={setCount("contacts")} />
@@ -261,11 +268,12 @@ function RdvModal({ compte, onClose, onCreated }) {
   );
 }
 
+const TYPES_PHYSIQUES = ["Visite", "Démo", "Salon", "Rencontre fortuite"];
+
 function RapportOralModal({ compte, onClose, onSaved }) {
   const [listening, setListening] = useState(false);
   const [text, setText] = useState("");
   const [type, setType] = useState("Visite");
-  const [resultat, setResultat] = useState("");
   const [saving, setSaving] = useState(false);
   const recognitionRef = useRef(null);
   const SpeechRecognitionApi = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
@@ -307,20 +315,34 @@ function RapportOralModal({ compte, onClose, onSaved }) {
     if (!text.trim()) return;
     setSaving(true);
     try {
+      const transcription = text.trim();
+      const analyse = await analyserRapportIA(transcription, compte);
       const now = new Date().toISOString();
-      await base44.entities.Interaction.create({
+      await base44.entities.RapportContact.create({
         compte_id: compte.id,
-        type,
         date_heure: now,
-        resultat: resultat || undefined,
-        compte_rendu: text.trim(),
-        transcription: text.trim(),
-        statut_validation: "Validé",
+        type_contact: type,
+        mode: "Dictée après contact",
+        transcription,
+        resume_ia: analyse.resume_ia,
+        contexte: analyse.contexte,
+        besoins: analyse.besoins,
+        materiel_en_place: analyse.materiel_en_place,
+        concurrence: analyse.concurrence,
+        objections: analyse.objections,
+        engagements: analyse.engagements,
+        prochaines_etapes: analyse.prochaines_etapes,
+        temperature: analyse.temperature || undefined,
+        statut: "À relire",
       });
+
       const dateContact = now.split("T")[0];
-      await base44.entities.Compte.update(compte.id, { date_dernier_contact: dateContact });
-      toast({ title: "Rapport enregistré", description: "L'interaction a été ajoutée à l'historique." });
-      onSaved({ date_dernier_contact: dateContact });
+      const patch = { date_dernier_contact: dateContact };
+      if (TYPES_PHYSIQUES.includes(type)) patch.date_dernier_rdv_physique = dateContact;
+      await base44.entities.Compte.update(compte.id, patch);
+
+      toast({ title: "Rapport enregistré", description: "Analysé par l'IA et ajouté aux rapports — à relire et valider." });
+      onSaved(patch);
       onClose();
     } catch (e) {
       console.error(e);
@@ -369,16 +391,13 @@ function RapportOralModal({ compte, onClose, onSaved }) {
               className="w-full rounded-lg border border-gd-mist/60 px-3 py-2 text-sm outline-none focus:border-gd-blue"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField label="Type" value={type} onChange={setType} options={TYPES_INTERACTION} />
-            <SelectField label="Résultat" value={resultat} onChange={setResultat} options={RESULTATS_INTERACTION} allowEmpty />
-          </div>
+          <SelectField label="Type de contact" value={type} onChange={setType} options={TYPES_CONTACT_RAPPORT} />
         </div>
 
         <div className="mt-4 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-lg border border-gd-mist/60 py-2.5 text-sm font-medium">Annuler</button>
           <button onClick={save} disabled={saving || !text.trim()} className="flex-1 rounded-lg bg-gd-blue py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-            {saving ? "Enregistrement…" : "Enregistrer"}
+            {saving ? "Analyse IA en cours…" : "Enregistrer"}
           </button>
         </div>
       </div>

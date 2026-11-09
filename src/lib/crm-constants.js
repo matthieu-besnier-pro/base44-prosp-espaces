@@ -143,6 +143,8 @@ export const SOURCES = ["Fichier initial", "Salon", "Recommandation", "Entrant"]
 
 export const CONSENTEMENTS = ["Non renseigné", "OK prospection", "Opposition"];
 
+export const TYPES_CONTACT_RAPPORT = ["Visite", "Appel", "Salon", "Démo", "Rencontre fortuite"];
+
 export const TEMPERATURES = ["Froid", "Tiède", "Chaud"];
 
 export const TEMPERATURE_COULEUR = {
