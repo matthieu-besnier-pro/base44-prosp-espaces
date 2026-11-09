@@ -40,7 +40,6 @@ export default function TableauDeBord() {
   const [activite, setActivite] = useState(null);
   const [repartition, setRepartition] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [periodMode, setPeriodMode] = useState("jour");
   const [analyseIA, setAnalyseIA] = useState(null);
   const [analyseLoading, setAnalyseLoading] = useState(false);
 
@@ -192,24 +191,13 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
 
   const today = new Date();
   const maxRepartition = Math.max(1, ...repartition.map((r) => r.count));
-  const actuel = activite[periodMode];
-  const precedent = actuel.prev;
 
-  const sousTitrePeriode = {
+  const sousTitresPeriode = {
     jour: capitalize(format(today, "EEEE d MMMM", { locale: fr })),
     semaine: `Semaine du ${format(startOfWeek(today, { weekStartsOn: 1 }), "d")} au ${format(endOfWeek(today, { weekStartsOn: 1 }), "d MMMM", { locale: fr })}`,
     mois: capitalize(format(today, "MMMM yyyy", { locale: fr })),
-    tout: "Depuis le début du portefeuille",
-  }[periodMode];
-
-  const messageDynamique = (() => {
-    if (!precedent) return null;
-    const total = (actuel.appels || 0) + (actuel.visites || 0) + (actuel.rdvPris || 0);
-    const totalPrev = (precedent.appels || 0) + (precedent.visites || 0) + (precedent.rdvPris || 0);
-    if (total > totalPrev) return { ton: "positif", texte: "Bonne dynamique par rapport à la période précédente." };
-    if (total < totalPrev) return { ton: "negatif", texte: "En retrait par rapport à la période précédente — de quoi se relancer." };
-    return { ton: "neutre", texte: "Rythme stable par rapport à la période précédente." };
-  })();
+    tout: "Depuis le début",
+  };
 
   return (
     <div className="animate-fade-in">
@@ -232,29 +220,17 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
           </div>
         )}
 
-        {/* ───────────────────── ACTIVITÉ (période sélectionnable) ───────────────────── */}
+        {/* ───────────────────── ACTIVITÉ (toutes les périodes en un coup d'œil) ───────────────────── */}
         <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gd-mist/40 pb-2">
-            <div className="flex items-baseline gap-2.5">
-              <h2 className="gd-title text-base text-gd-blue">Activité commerciale</h2>
-              <span className="text-xs text-muted-foreground">{sousTitrePeriode}</span>
-            </div>
-            <PeriodToggle value={periodMode} onChange={setPeriodMode} />
+          <div className="mb-3 flex items-baseline gap-2.5 border-b border-gd-mist/40 pb-2">
+            <h2 className="gd-title text-base text-gd-blue">Activité commerciale</h2>
+            <span className="text-xs text-muted-foreground">Jour · Hebdo · Mois · Tout, en parallèle</span>
           </div>
 
-          {messageDynamique && (
-            <p className={`mb-3 text-sm font-semibold ${
-              messageDynamique.ton === "positif" ? "text-emerald-600" : messageDynamique.ton === "negatif" ? "text-gd-danger" : "text-slate-500"
-            }`}>
-              {messageDynamique.texte}
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <ActivityTile icon={Phone} label="Appels" value={actuel.appels} prev={precedent?.appels} />
-            <ActivityTile icon={Video} label="Visites" value={actuel.visites} prev={precedent?.visites} />
-            <ActivityTile icon={CalendarCheck} label="RDV pris" value={actuel.rdvPris} prev={precedent?.rdvPris} />
-            <ActivityTile icon={Star} label="Clients contactés" value={actuel.contactes} prev={precedent?.contactes} />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {PERIODES.map((p) => (
+              <PeriodCard key={p.cle} label={p.label} subtitle={sousTitresPeriode[p.cle]} data={activite[p.cle]} />
+            ))}
           </div>
         </section>
 
@@ -288,24 +264,6 @@ function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-function PeriodToggle({ value, onChange }) {
-  return (
-    <div className="inline-flex rounded-xl border border-gd-mist/60 bg-white p-1">
-      {PERIODES.map((p) => (
-        <button
-          key={p.cle}
-          onClick={() => onChange(p.cle)}
-          className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
-            value === p.cle ? "bg-gd-blue text-white shadow-sm" : "text-slate-500 hover:text-gd-blue"
-          }`}
-        >
-          {p.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function DeltaBadge({ current, prev }) {
   if (prev == null) return null;
   const diff = (current || 0) - (prev || 0);
@@ -327,17 +285,35 @@ function DeltaBadge({ current, prev }) {
   );
 }
 
-function ActivityTile({ icon: Icon, label, value, prev }) {
+function PeriodCard({ label, subtitle, data }) {
+  const prev = data.prev;
   return (
     <div className="gd-hatch rounded-xl border border-gd-mist/50 bg-white p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gd-blue text-white">
-          <Icon className="h-5 w-5" />
-        </div>
+      <div className="mb-3">
+        <h3 className="gd-title text-sm text-gd-blue">{label}</h3>
+        <span className="text-[11px] text-muted-foreground">{subtitle}</span>
+      </div>
+      <div className="space-y-2.5">
+        <MetricRow icon={Phone} label="Appels" value={data.appels} prev={prev?.appels} />
+        <MetricRow icon={Video} label="Visites" value={data.visites} prev={prev?.visites} />
+        <MetricRow icon={CalendarCheck} label="RDV pris" value={data.rdvPris} prev={prev?.rdvPris} />
+        <MetricRow icon={Star} label="Contactés" value={data.contactes} prev={prev?.contactes} />
+      </div>
+    </div>
+  );
+}
+
+function MetricRow({ icon: Icon, label, value, prev }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-t border-gd-mist/30 pt-2 first:border-t-0 first:pt-0">
+      <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-gd-blue" />
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <span className="gd-tabular text-base font-extrabold text-foreground">{value ?? 0}</span>
         <DeltaBadge current={value} prev={prev} />
       </div>
-      <div className="gd-tabular mt-3 text-3xl font-extrabold text-foreground">{value ?? 0}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }
