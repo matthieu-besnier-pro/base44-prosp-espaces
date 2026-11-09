@@ -10,7 +10,7 @@ import { exportCsv, deptLabel, rechercherTelephoneIA, statutApresNumeroTrouve } 
 import { toast } from "@/components/ui/use-toast";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
-  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles, FileText,
+  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles, FileText, AlertTriangle,
 } from "lucide-react";
 
 const PAGE_SIZE = 50;
@@ -43,6 +43,7 @@ export default function Comptes() {
     potentiel: searchParams.get("potentiel") || "",
     sansTel: searchParams.get("sansTel") === "1",
     jamaisContacte: searchParams.get("jamaisContacte") === "1",
+    contacteSansDate: searchParams.get("contacteSansDate") === "1",
   }));
   const [sortMode, setSortMode] = useState(() => searchParams.get("tri") || "score");
   const [showFilters, setShowFilters] = useState(false);
@@ -57,6 +58,7 @@ export default function Comptes() {
     if (filters.potentiel) params.potentiel = filters.potentiel;
     if (filters.sansTel) params.sansTel = "1";
     if (filters.jamaisContacte) params.jamaisContacte = "1";
+    if (filters.contacteSansDate) params.contacteSansDate = "1";
     if (sortMode !== "score") params.tri = sortMode;
     setSearchParams(params, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,10 +70,17 @@ export default function Comptes() {
       if (filters.famille) q.famille = filters.famille;
       if (filters.segment) q.segment = filters.segment;
       if (filters.departement) q.departement = filters.departement;
-      if (filters.statut) q.statut = filters.statut;
       if (filters.potentiel) q.potentiel = filters.potentiel;
       if (filters.sansTel) q.telephone_1 = { $exists: false };
-      if (filters.jamaisContacte) q.date_dernier_contact = { $exists: false };
+      // "Contactés sans date" cible spécifiquement le statut Contacté sans date de
+      // dernier contact : prioritaire sur le filtre Statut et sur "Jamais contacté".
+      if (filters.contacteSansDate) {
+        q.statut = "Contacté";
+        q.date_dernier_contact = { $exists: false };
+      } else {
+        if (filters.statut) q.statut = filters.statut;
+        if (filters.jamaisContacte) q.date_dernier_contact = { $exists: false };
+      }
       if (search.trim().length >= 2) {
         q.$or = [
           { raison_sociale: { $regex: search.trim(), $options: "i" } },
@@ -166,6 +175,10 @@ export default function Comptes() {
 
   const handlePhoneFound = (id, telephone, statut) => {
     setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, telephone_1: telephone, ...(statut ? { statut } : {}) } : c)));
+  };
+
+  const handleDateContactSaved = (id, date) => {
+    setComptes((prev) => prev.map((c) => (c.id === id ? { ...c, date_dernier_contact: date } : c)));
   };
 
   // Requête de base (famille/segment/département/statut/potentiel/recherche), sans la
@@ -336,8 +349,12 @@ export default function Comptes() {
                 <input type="checkbox" checked={filters.jamaisContacte} onChange={(e) => setFilters({ ...filters, jamaisContacte: e.target.checked })} className="h-4 w-4 rounded accent-gd-blue" />
                 Jamais contacté
               </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600" title="Statut Contacté mais aucune date de dernier contact enregistrée (remplace le filtre Statut)">
+                <input type="checkbox" checked={filters.contacteSansDate} onChange={(e) => setFilters({ ...filters, contacteSansDate: e.target.checked })} className="h-4 w-4 rounded accent-gd-blue" />
+                Contactés sans date
+              </label>
               {activeFilterCount > 0 && (
-                <button onClick={() => setFilters({ famille: "", segment: "", departement: "", statut: "", potentiel: "", sansTel: false, jamaisContacte: false })} className="flex items-center gap-1 text-sm font-medium text-gd-danger">
+                <button onClick={() => setFilters({ famille: "", segment: "", departement: "", statut: "", potentiel: "", sansTel: false, jamaisContacte: false, contacteSansDate: false })} className="flex items-center gap-1 text-sm font-medium text-gd-danger">
                   <X className="h-3.5 w-3.5" /> Réinitialiser
                 </button>
               )}
@@ -400,7 +417,7 @@ export default function Comptes() {
               </TableHeader>
               <TableBody>
                 {comptesAffiches.map((c) => (
-                  <CompteRow key={c.id} compte={c} rapportInfo={rapportsParCompte[c.id]} onClick={() => navigate(`/comptes/${c.id}`)} onPhoneFound={handlePhoneFound} />
+                  <CompteRow key={c.id} compte={c} rapportInfo={rapportsParCompte[c.id]} onClick={() => navigate(`/comptes/${c.id}`)} onPhoneFound={handlePhoneFound} onDateContactSaved={handleDateContactSaved} />
                 ))}
               </TableBody>
             </Table>
@@ -440,7 +457,7 @@ function FilterSelect({ label, value, onChange, options, rawOptions }) {
   );
 }
 
-function CompteRow({ compte, rapportInfo, onClick, onPhoneFound }) {
+function CompteRow({ compte, rapportInfo, onClick, onPhoneFound, onDateContactSaved }) {
   const av = pipelineAvancement(compte.statut || "À qualifier");
   const barColor = av.special === "Perdu" ? "bg-gd-danger" : av.special ? "bg-zinc-300" : "bg-gd-blue";
 
@@ -491,9 +508,13 @@ function CompteRow({ compte, rapportInfo, onClick, onPhoneFound }) {
         <ScoreBadge score={compte.score} />
       </TableCell>
       <TableCell className="hidden whitespace-nowrap text-xs text-muted-foreground md:table-cell">
-        {compte.date_dernier_contact
-          ? new Date(compte.date_dernier_contact).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
-          : "Jamais"}
+        {compte.date_dernier_contact ? (
+          new Date(compte.date_dernier_contact).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+        ) : compte.statut === "Contacté" ? (
+          <DateContactManquante compte={compte} onSaved={onDateContactSaved} />
+        ) : (
+          "Jamais"
+        )}
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         {compte.telephone_1 ? (
@@ -508,6 +529,58 @@ function CompteRow({ compte, rapportInfo, onClick, onPhoneFound }) {
         <ChevronRight className="h-4 w-4 text-slate-300" />
       </TableCell>
     </TableRow>
+  );
+}
+
+// Un client "Contacté" sans date de dernier contact est une anomalie de données
+// (souvent un compte passé à ce statut avant que la mise à jour automatique de la
+// date n'existe) : ce contrôle permet de la corriger directement depuis la liste.
+function DateContactManquante({ compte, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [saving, setSaving] = useState(false);
+
+  const enregistrer = async (e) => {
+    e.stopPropagation();
+    if (!date) return;
+    setSaving(true);
+    try {
+      await base44.entities.Compte.update(compte.id, { date_dernier_contact: date });
+      onSaved(compte.id, date);
+      toast({ title: "Date de contact enregistrée", description: compte.raison_sociale });
+      setEditing(false);
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "L'enregistrement a échoué.", variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  if (!editing) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        className="flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-200"
+        title="Statut « Contacté » sans date de dernier contact — cliquez pour la renseigner"
+      >
+        <AlertTriangle className="h-2.5 w-2.5" /> Sans date
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <input
+        type="date"
+        value={date}
+        max={new Date().toISOString().split("T")[0]}
+        onChange={(e) => setDate(e.target.value)}
+        className="h-7 w-[108px] rounded border border-gd-mist/60 px-1 text-[11px] outline-none focus:border-gd-blue"
+      />
+      <button onClick={enregistrer} disabled={saving} className="rounded bg-gd-blue px-1.5 py-1 text-[10px] font-semibold text-white disabled:opacity-50">
+        {saving ? "…" : "OK"}
+      </button>
+    </div>
   );
 }
 
