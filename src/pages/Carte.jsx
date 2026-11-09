@@ -24,12 +24,12 @@ function dotColorHex(statut) {
 // conditions réelles : "0 géolocalisés" ET "rien à géolocaliser" en même temps).
 // Par sécurité, on récupère donc tous les comptes et on filtre côté client
 // plutôt que de faire confiance à cet opérateur pour latitude/longitude.
-async function recupererTousLesComptes(fields) {
+async function recupererTousLesComptes(fields, query = {}) {
   let cursor;
   let tous = [];
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const page = await base44.entities.Compte.filter({}, { limit: 200, cursor, fields });
+    const page = await base44.entities.Compte.filter(query, { limit: 200, cursor, fields });
     const items = page.items || page;
     tous = tous.concat(items);
     if (!page.has_more || !page.next_cursor) break;
@@ -37,6 +37,16 @@ async function recupererTousLesComptes(fields) {
   }
   return tous;
 }
+
+// La carte n'a vocation à montrer que les clients dont le premier contact a déjà
+// été effectué : on exclut donc "À qualifier". L'exclusion est exprimée en $or sur
+// les AUTRES statuts (plutôt qu'un $ne/$exists sur "À qualifier") pour couvrir aussi
+// les comptes sans statut du tout, traités par défaut comme "À qualifier" ailleurs
+// dans l'app — et pour rester sur des opérateurs dont la fiabilité est éprouvée ici.
+// Ce filtrage côté serveur réduit aussi fortement le volume chargé (et le temps de
+// chargement) par rapport à la récupération de tout le portefeuille.
+const AUTRES_STATUTS = STATUTS_COMPTE.filter((s) => s !== "À qualifier");
+const FILTRE_PREMIER_CONTACT = { $or: AUTRES_STATUTS.map((s) => ({ statut: s })) };
 
 export default function Carte() {
   const navigate = useNavigate();
@@ -50,7 +60,8 @@ export default function Carte() {
     setLoading(true);
     try {
       const tous = await recupererTousLesComptes(
-        ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"]
+        ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"],
+        FILTRE_PREMIER_CONTACT
       );
       setComptes(tous.filter((c) => c.latitude && c.longitude));
     } catch (e) { console.error(e); }
@@ -88,7 +99,8 @@ export default function Carte() {
     setGeocodage({ actif: true, fait: 0, total: 0, succes: 0 });
     try {
       const tous = await recupererTousLesComptes(
-        ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel", "latitude", "longitude"]
+        ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel", "latitude", "longitude"],
+        FILTRE_PREMIER_CONTACT
       );
       const aTraiter = tous.filter((c) => !c.latitude || !c.longitude);
 
@@ -140,7 +152,7 @@ export default function Carte() {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle subtitle={`${geolocalises.length} clients géolocalisés`}>Carte & tournée</PageTitle>
+      <PageTitle subtitle={`${geolocalises.length} clients géolocalisés · hors « À qualifier »`}>Carte & tournée</PageTitle>
       <div className="p-4 lg:p-8">
         {loading ? (
           <div className="flex justify-center py-20">
@@ -217,7 +229,7 @@ export default function Carte() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-1">
-                  {STATUTS_COMPTE.map((s) => {
+                  {AUTRES_STATUTS.map((s) => {
                     const hidden = hiddenStatuts.has(s);
                     const c = STATUT_COULEUR[s] || STATUT_COULEUR["À qualifier"];
                     return (
