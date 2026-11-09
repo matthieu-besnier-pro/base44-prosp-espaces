@@ -1,21 +1,16 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import PageTitle from "@/components/PageTitle";
-import { STATUTS_COMPTE, STATUT_COULEUR } from "@/lib/crm-constants";
+import { STATUTS_COMPTE, STATUT_COULEUR, PIPELINE_STEPS } from "@/lib/crm-constants";
 import {
-  AlertTriangle, CalendarCheck, PhoneOff, Wrench, Phone, Video,
-  Building2, TrendingUp, Star, Sparkles, ArrowUpRight, ArrowDownRight, Minus,
+  AlertTriangle, CalendarCheck, PhoneOff, Wrench, Phone, Video, Users,
+  Sparkles, ArrowUpRight, ArrowDownRight, Minus, Trophy,
 } from "lucide-react";
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   subDays, subWeeks, subMonths, addMonths, format,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-
-const GD_BLUE = "#01377D";
-const GD_YELLOW = "#FEB800";
-const GD_GREEN = "#10b981";
-const GD_MIST = "#CAD6E4";
 
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
@@ -25,6 +20,18 @@ const PERIODES = [
   { cle: "mois", label: "Mois" },
   { cle: "tout", label: "Tout" },
 ];
+
+// Métriques suivies pour chaque période, avec leur icône et l'échelle de référence
+// utilisée pour les petits repères de rythme des cadrans du jour (pas une limite dure,
+// juste de quoi situer visuellement une valeur "normale" pour une seule personne/jour).
+const METRIQUES = [
+  { cle: "appels", label: "Appels", icon: Phone, echelleJour: 15 },
+  { cle: "visites", label: "Visites", icon: Video, echelleJour: 6 },
+  { cle: "rdvPris", label: "RDV pris", icon: CalendarCheck, echelleJour: 4 },
+  { cle: "contactes", label: "Contactés", icon: Users, echelleJour: 10 },
+];
+
+const totalPeriode = (d) => (d?.appels || 0) + (d?.visites || 0) + (d?.rdvPris || 0) + (d?.contactes || 0);
 
 // Compte les 4 indicateurs d'activité pour une fenêtre temporelle donnée.
 const compterActivite = (debutIso, finIso, debutDate, finDate) =>
@@ -190,7 +197,6 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
   }
 
   const today = new Date();
-  const maxRepartition = Math.max(1, ...repartition.map((r) => r.count));
 
   const sousTitresPeriode = {
     jour: capitalize(format(today, "EEEE d MMMM", { locale: fr })),
@@ -199,11 +205,34 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
     tout: "Depuis le début",
   };
 
+  // Élan du jour : variation de l'activité totale par rapport à hier. Sert de fil rouge
+  // au cadran principal du cockpit (voir CockpitHero ci-dessous).
+  const totalJour = totalPeriode(activite.jour);
+  const totalHier = activite.jour.prev ? totalPeriode(activite.jour.prev) : 0;
+  const elanPct = totalHier > 0 ? Math.round(((totalJour - totalHier) / totalHier) * 100) : (totalJour > 0 ? 100 : 0);
+
+  // Période "en tête" du scoreboard : celle dont l'activité totale progresse le plus
+  // par rapport à la période précédente équivalente ("Tout" n'a pas de précédent, donc
+  // n'entre jamais en lice — pas de triche possible sur un cumul qui ne peut que croître).
+  let periodeEnTete = null;
+  let meilleurDelta = -Infinity;
+  for (const cle of ["jour", "semaine", "mois"]) {
+    const d = activite[cle];
+    const prevTotal = d.prev ? totalPeriode(d.prev) : 0;
+    if (prevTotal <= 0) continue;
+    const deltaPct = (totalPeriode(d) - prevTotal) / prevTotal;
+    if (deltaPct > meilleurDelta) { meilleurDelta = deltaPct; periodeEnTete = cle; }
+  }
+
+  const funnelData = PIPELINE_STEPS.map((s) => ({ statut: s, count: repartition.find((r) => r.statut === s)?.count || 0 }));
+  const maxFunnel = Math.max(1, ...funnelData.map((f) => f.count));
+  const exitsData = repartition.filter((r) => !PIPELINE_STEPS.includes(r.statut));
+
   return (
     <div className="animate-fade-in">
       <PageTitle subtitle={`${k.totalComptes || 0} clients en portefeuille · Zone 16, 79, 86`}>Tableau de bord</PageTitle>
 
-      <div className="space-y-8 p-4 lg:p-8">
+      <div className="space-y-6 p-4 lg:p-8">
         {(analyseLoading || analyseIA) && (
           <div className="rounded-xl border border-gd-yellow/30 bg-gd-yellow/5 p-3">
             <div className="flex items-start gap-2">
@@ -220,41 +249,13 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
           </div>
         )}
 
-        {/* ───────────────────── ACTIVITÉ (toutes les périodes en un coup d'œil) ───────────────────── */}
-        <section>
-          <div className="mb-3 flex items-baseline gap-2.5 border-b border-gd-mist/40 pb-2">
-            <h2 className="gd-title text-base text-gd-blue">Activité commerciale</h2>
-            <span className="text-xs text-muted-foreground">Jour · Hebdo · Mois · Tout, en parallèle</span>
-          </div>
+        <CockpitHero elanPct={elanPct} totalJour={totalJour} totalHier={totalHier} jour={activite.jour} />
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {PERIODES.map((p) => (
-              <PeriodCard key={p.cle} label={p.label} subtitle={sousTitresPeriode[p.cle]} data={activite[p.cle]} />
-            ))}
-          </div>
-        </section>
+        <Scoreboard sousTitresPeriode={sousTitresPeriode} activite={activite} periodeEnTete={periodeEnTete} />
 
-        {/* ───────────────────── PORTEFEUILLE (vue globale) ───────────────────── */}
-        <DashboardSection title="Portefeuille" subtitle="Vue d'ensemble globale">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-            <RingStat pct={pct(k.clientsCount, k.totalComptes)} color={GD_BLUE} label="Taux de conversion" />
-            <RingStat pct={pct(k.potentielACount, k.totalComptes)} color={GD_YELLOW} label="Potentiel A" />
-            <RingStat pct={pct(k.scoreEleveCount, k.totalComptes)} color={GD_GREEN} label="Score ≥ 70" />
-            <StatTile icon={Building2} label="Clients" value={k.totalComptes} />
-            <StatTile icon={PhoneOff} label="Jamais contactés" value={k.jamaisContactes} />
-            <StatTile icon={Wrench} label="Équip. à renouveler" value={k.equipementsARenouveler} sub="sous 12 mois" />
-            <StatTile icon={AlertTriangle} label="Tâches en retard" value={k.tachesRetard} accent={k.tachesRetard > 0 ? "danger" : undefined} />
-          </div>
+        <Funnel funnelData={funnelData} maxFunnel={maxFunnel} exitsData={exitsData} />
 
-          <div className="mt-4 rounded-xl border border-gd-mist/50 bg-white p-5 gd-hatch">
-            <h3 className="gd-title mb-4 text-sm text-gd-blue">Répartition des clients par statut</h3>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {repartition.map((r) => (
-                <RepartitionRow key={r.statut} statut={r.statut} count={r.count} max={maxRepartition} />
-              ))}
-            </div>
-          </div>
-        </DashboardSection>
+        <PortfolioStrip k={k} />
       </div>
     </div>
   );
@@ -277,7 +278,7 @@ function DeltaBadge({ current, prev }) {
   const positif = diff > 0;
   return (
     <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-      positif ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+      positif ? "bg-gd-success/15 text-gd-success" : "bg-gd-danger/10 text-gd-danger"
     }`}>
       {positif ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
       {positif ? "+" : ""}{diff}
@@ -285,109 +286,209 @@ function DeltaBadge({ current, prev }) {
   );
 }
 
-function PeriodCard({ label, subtitle, data }) {
-  const prev = data.prev;
-  return (
-    <div className="gd-hatch rounded-xl border border-gd-mist/50 bg-white p-4">
-      <div className="mb-3">
-        <h3 className="gd-title text-sm text-gd-blue">{label}</h3>
-        <span className="text-[11px] text-muted-foreground">{subtitle}</span>
-      </div>
-      <div className="space-y-2.5">
-        <MetricRow icon={Phone} label="Appels" value={data.appels} prev={prev?.appels} />
-        <MetricRow icon={Video} label="Visites" value={data.visites} prev={prev?.visites} />
-        <MetricRow icon={CalendarCheck} label="RDV pris" value={data.rdvPris} prev={prev?.rdvPris} />
-        <MetricRow icon={Star} label="Contactés" value={data.contactes} prev={prev?.contactes} />
-      </div>
-    </div>
-  );
-}
+// ───────────────────────── COCKPIT (hero : élan du jour + cadrans) ─────────────────────────
 
-function MetricRow({ icon: Icon, label, value, prev }) {
-  return (
-    <div className="flex items-center justify-between gap-2 border-t border-gd-mist/30 pt-2 first:border-t-0 first:pt-0">
-      <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon className="h-3.5 w-3.5 shrink-0 text-gd-blue" />
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <span className="gd-tabular text-base font-extrabold text-foreground">{value ?? 0}</span>
-        <DeltaBadge current={value} prev={prev} />
-      </div>
-    </div>
-  );
-}
+function CockpitHero({ elanPct, totalJour, totalHier, jour }) {
+  const ringFill = Math.min(100, Math.max(0, 50 + elanPct));
+  const size = 150, stroke = 12;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - ringFill / 100);
+  const humeur = elanPct > 0 ? "ça pousse" : elanPct < 0 ? "en retrait — de quoi se relancer" : "rythme stable";
 
-function DashboardSection({ title, subtitle, children }) {
   return (
-    <section>
-      <div className="mb-3 flex items-baseline gap-2.5 border-b border-gd-mist/40 pb-2">
-        <h2 className="gd-title text-base text-gd-blue">{title}</h2>
-        {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
+    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-gd-navy via-gd-blue to-[#04142B] p-6 text-white shadow-xl">
+      <div className="pointer-events-none absolute -left-12 -top-16 h-64 w-[640px] rounded-full bg-gd-yellow/10 blur-3xl" />
+      <div className="relative grid gap-6 lg:grid-cols-[200px_1fr]">
+        <div className="flex flex-col items-center gap-1 text-center">
+          <p className="gd-title text-[11px] tracking-widest text-gd-yellow">Élan du jour</p>
+          <div className="relative" style={{ width: size, height: size }}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+              <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth={stroke} />
+              <circle
+                cx={size / 2} cy={size / 2} r={r} fill="none"
+                stroke="#FEB800" strokeWidth={stroke} strokeLinecap="round"
+                strokeDasharray={c} strokeDashoffset={offset}
+                style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(.22,.8,.3,1)", filter: "drop-shadow(0 0 7px rgba(254,184,0,.55))" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="gd-tabular text-3xl font-extrabold">{elanPct >= 0 ? "+" : ""}{elanPct}%</span>
+              <span className="mt-1 text-[10px] uppercase tracking-wider text-white/60">vs hier</span>
+            </div>
+          </div>
+          <p className="max-w-[190px] text-xs text-white/70">
+            <b className="text-white">{totalJour} action{totalJour > 1 ? "s" : ""}</b> aujourd'hui contre {totalHier} hier — {humeur}.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 content-center gap-3 sm:grid-cols-4">
+          {METRIQUES.map((m) => (
+            <Instrument key={m.cle} metrique={m} value={jour[m.cle]} prev={jour.prev?.[m.cle]} />
+          ))}
+        </div>
       </div>
-      {children}
     </section>
   );
 }
 
-function RingStat({ pct: value, color, label, size = 92, stroke = 9 }) {
-  const clamped = Math.min(100, Math.max(0, value || 0));
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c * (1 - clamped / 100);
+function Instrument({ metrique, value, prev }) {
+  const Icon = metrique.icon;
+  const nbTicks = 8;
+  const ticksOn = Math.min(nbTicks, Math.round(Math.min(1, (value || 0) / metrique.echelleJour) * nbTicks) || (value > 0 ? 1 : 0));
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-gd-mist/50 bg-white p-3">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={GD_MIST} strokeWidth={stroke} opacity={0.5} />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={c}
-            strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 0.6s ease" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xl font-extrabold text-foreground">{clamped}%</span>
+    <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[.08] to-transparent p-3.5">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/60">
+        <Icon className="h-3.5 w-3.5 text-gd-yellow" />
+        {metrique.label}
+      </div>
+      <div className="gd-tabular mt-1.5 text-2xl font-extrabold">{value ?? 0}</div>
+      <DeltaDirection value={value} prev={prev} />
+      <div className="mt-2.5 flex gap-[3px]">
+        {Array.from({ length: nbTicks }).map((_, i) => (
+          <span key={i} className={`h-1 flex-1 rounded-sm ${i < ticksOn ? "bg-gd-yellow" : "bg-white/15"}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeltaDirection({ value, prev }) {
+  if (prev == null) return null;
+  const diff = (value || 0) - (prev || 0);
+  const cls = diff > 0 ? "text-emerald-300" : diff < 0 ? "text-rose-300" : "text-white/50";
+  return (
+    <div className={`mt-0.5 flex items-center gap-1 text-[11px] font-semibold ${cls}`}>
+      {diff !== 0 && (diff > 0
+        ? <ArrowUpRight className="h-3 w-3" />
+        : <ArrowDownRight className="h-3 w-3" />)}
+      {diff === 0 ? "stable" : `${diff > 0 ? "+" : ""}${diff} vs hier`}
+    </div>
+  );
+}
+
+// ───────────────────────── SCOREBOARD (Jour / Hebdo / Mois / Tout) ─────────────────────────
+
+function Scoreboard({ sousTitresPeriode, activite, periodeEnTete }) {
+  return (
+    <section className="rounded-2xl border border-gd-mist/50 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="gd-title text-sm text-gd-blue">Jour · Hebdo · Mois · Tout</h2>
+        <span className="text-xs text-muted-foreground">Chaque période vs la précédente équivalente</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[620px] border-collapse">
+          <thead>
+            <tr>
+              <th className="w-[150px]" />
+              {PERIODES.map((p) => {
+                const enTete = p.cle === periodeEnTete;
+                return (
+                  <th key={p.cle} className={`pb-3 text-center ${enTete ? "text-gd-navy" : ""}`}>
+                    {enTete && (
+                      <div className="mb-0.5 flex justify-center">
+                        <Trophy className="h-4 w-4 fill-gd-yellow text-gd-yellow" />
+                      </div>
+                    )}
+                    <div className="gd-title text-xs">{p.label}</div>
+                    <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
+                      {sousTitresPeriode[p.cle]}
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {METRIQUES.map((m) => (
+              <tr key={m.cle} className="border-t border-gd-mist/30">
+                <td className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+                  <m.icon className="h-3.5 w-3.5 shrink-0 text-gd-blue" /> {m.label}
+                </td>
+                {PERIODES.map((p) => {
+                  const d = activite[p.cle];
+                  const enTete = p.cle === periodeEnTete;
+                  return (
+                    <td key={p.cle} className={`py-3 text-center ${enTete ? "rounded-lg bg-gd-yellow/10" : ""}`}>
+                      <div className="gd-tabular text-lg font-extrabold text-foreground">{d[m.cle] ?? 0}</div>
+                      <div className="mt-0.5 flex justify-center">
+                        <DeltaBadge current={d[m.cle]} prev={d.prev?.[m.cle]} />
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// ───────────────────────── PIPELINE (entonnoir + sorties) ─────────────────────────
+
+function Funnel({ funnelData, maxFunnel, exitsData }) {
+  return (
+    <section className="rounded-2xl border border-gd-mist/50 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="gd-title text-sm text-gd-blue">Pipeline de prospection</h2>
+        <span className="text-xs text-muted-foreground">Répartition du portefeuille, étape par étape</span>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[1fr_200px]">
+        <div className="flex flex-col gap-2">
+          {funnelData.map((f) => {
+            const c = STATUT_COULEUR[f.statut] || STATUT_COULEUR["À qualifier"];
+            const p = Math.round((f.count / maxFunnel) * 100);
+            return (
+              <div key={f.statut} className="grid grid-cols-[120px_1fr_52px] items-center gap-2.5">
+                <span className="truncate text-right text-xs text-muted-foreground">{f.statut}</span>
+                <div className="h-6 overflow-hidden rounded-md bg-gd-ice">
+                  <div className={`h-full rounded-md ${c.dot}`} style={{ width: `${p}%` }} />
+                </div>
+                <span className="gd-tabular text-right text-xs font-bold">{f.count}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex flex-col justify-center gap-2.5 border-t border-dashed border-gd-mist/60 pt-3 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+          {exitsData.map((e) => {
+            const c = STATUT_COULEUR[e.statut] || STATUT_COULEUR["À qualifier"];
+            return (
+              <div key={e.statut} className="flex items-center justify-between gap-2 text-xs">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${c.dot}`} />
+                <span className="flex-1 truncate text-muted-foreground">{e.statut}</span>
+                <span className="gd-tabular font-bold">{e.count}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
-      <span className="text-center text-xs text-muted-foreground">{label}</span>
-    </div>
+    </section>
   );
 }
 
-function StatTile({ icon: Icon, label, value, sub, accent }) {
-  const accentClass = accent === "danger" ? "bg-gd-danger text-white" : "bg-gd-blue text-white";
-  return (
-    <div className="gd-hatch rounded-xl border border-gd-mist/50 bg-white p-4">
-      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accentClass}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="gd-tabular mt-3 text-2xl font-extrabold text-foreground">{value ?? 0}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      {sub && <div className="mt-0.5 text-[11px] text-muted-foreground/70">{sub}</div>}
-    </div>
-  );
-}
+// ───────────────────────── PORTEFEUILLE (bandeau discret) ─────────────────────────
 
-function RepartitionRow({ statut, count, max }) {
-  const c = STATUT_COULEUR[statut] || STATUT_COULEUR["À qualifier"];
-  const p = Math.round((count / max) * 100);
+function PortfolioStrip({ k }) {
+  const items = [
+    { label: "Taux de conversion", value: `${pct(k.clientsCount, k.totalComptes)}%` },
+    { label: "Potentiel A", value: k.potentielACount },
+    { label: "Score ≥ 70", value: k.scoreEleveCount },
+    { label: "Jamais contactés", value: k.jamaisContactes, warn: k.jamaisContactes > 0 },
+    { label: "Équip. à renouveler", value: k.equipementsARenouveler },
+    { label: "Tâches en retard", value: k.tachesRetard, warn: k.tachesRetard > 0 },
+  ];
   return (
-    <div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{statut}</span>
-        <span className="gd-tabular font-semibold">{count}</span>
+    <section className="rounded-2xl border border-gd-mist/50 bg-white p-4 shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+        {items.map((it, i) => (
+          <div key={it.label} className={`px-4 py-1 ${i > 0 ? "border-gd-mist/40 sm:border-l" : ""} ${i % 2 === 1 ? "border-l border-gd-mist/40 sm:border-l-0" : ""}`}>
+            <div className={`gd-tabular text-xl font-extrabold ${it.warn ? "text-gd-warning" : "text-foreground"}`}>{it.value}</div>
+            <div className="text-[11px] text-muted-foreground">{it.label}</div>
+          </div>
+        ))}
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-gd-ice">
-        <div className={`h-full rounded-full ${c.dot}`} style={{ width: `${p}%` }} />
-      </div>
-    </div>
+    </section>
   );
 }
