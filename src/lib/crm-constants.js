@@ -9,6 +9,7 @@ export const STATUTS_COMPTE = [
   "Client",
   "Perdu",
   "Hors cible",
+  "Sans numéro",
 ];
 
 export const STATUT_COULEUR = {
@@ -20,6 +21,7 @@ export const STATUT_COULEUR = {
   Client: { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
   Perdu: { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
   "Hors cible": { bg: "bg-zinc-200", text: "text-zinc-600", dot: "bg-zinc-400" },
+  "Sans numéro": { bg: "bg-orange-100", text: "text-orange-700", dot: "bg-orange-400" },
 };
 
 // Étapes principales du cycle de prospection (hors issues terminales Perdu/Hors cible)
@@ -34,7 +36,7 @@ export const PIPELINE_STEPS = [
 
 // Avancement d'un compte dans le cycle de prospection, pour affichage (barre, stepper)
 export function pipelineAvancement(statut) {
-  if (statut === "Perdu" || statut === "Hors cible") {
+  if (statut === "Perdu" || statut === "Hors cible" || statut === "Sans numéro") {
     return { index: -1, total: PIPELINE_STEPS.length, pct: statut === "Perdu" ? 100 : 0, special: statut };
   }
   const idx = PIPELINE_STEPS.indexOf(statut);

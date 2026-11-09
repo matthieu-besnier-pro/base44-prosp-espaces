@@ -34,7 +34,14 @@ export default function InfosTab({ compte, onUpdate }) {
   const save = async () => {
     setSaving(true);
     try {
-      const updated = await base44.entities.Compte.update(compte.id, form);
+      const data = { ...form };
+      // Passage au statut "Contacté" : on date le dernier contact au jour du changement,
+      // sauf si l'utilisateur a déjà saisi une date de dernier contact plus précise lui-même.
+      if (data.statut === "Contacté" && compte.statut !== "Contacté") {
+        data.date_dernier_contact = new Date().toISOString().split("T")[0];
+      }
+      const updated = await base44.entities.Compte.update(compte.id, data);
+      setForm(updated);
       onUpdate(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -111,7 +118,12 @@ export default function InfosTab({ compte, onUpdate }) {
           <Input label="Fournisseur actuel" value={form.fournisseur_actuel || ""} onChange={(v) => setForm({ ...form, fournisseur_actuel: v })} full />
           <Input label="Mois de vote du budget" value={form.mois_vote_budget || ""} onChange={(v) => setForm({ ...form, mois_vote_budget: v })} />
           <Input label="Tags (séparés par virgules)" value={(form.tags || []).join(", ")} onChange={(v) => setForm({ ...form, tags: v.split(",").map((s) => s.trim()).filter(Boolean) })} full />
+          <Input label="Dernier contact" value={form.date_dernier_contact || ""} onChange={(v) => setForm({ ...form, date_dernier_contact: v })} type="date" />
+          <Input label="Dernier RDV physique" value={form.date_dernier_rdv_physique || ""} onChange={(v) => setForm({ ...form, date_dernier_rdv_physique: v })} type="date" />
         </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Le passage du statut à « Contacté » met automatiquement à jour la date de dernier contact.
+        </p>
       </Section>
 
       <div className="sticky bottom-20 flex justify-end lg:bottom-4">

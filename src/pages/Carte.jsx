@@ -10,7 +10,7 @@ import { MapPin, Eye, EyeOff, Navigation, X } from "lucide-react";
 
 const DOT_HEX = {
   slate: "94a3b8", blue: "3b82f6", cyan: "06b6d4", violet: "8b5cf6",
-  amber: "f59e0b", emerald: "10b981", rose: "f43f5e", zinc: "a1a1aa",
+  amber: "f59e0b", emerald: "10b981", rose: "f43f5e", zinc: "a1a1aa", orange: "fb923c",
 };
 
 function dotColorHex(statut) {

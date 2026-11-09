@@ -84,7 +84,8 @@
         "Offre en cours",
         "Client",
         "Perdu",
-        "Hors cible"
+        "Hors cible",
+        "Sans num\u00e9ro"
       ]
     },
     "potentiel": {
@@ -118,6 +119,11 @@
     "date_dernier_contact": {
       "type": "string",
       "format": "date"
+    },
+    "date_dernier_rdv_physique": {
+      "type": "string",
+      "format": "date",
+      "description": "Date du dernier rendez-vous physique (visite), distinct d'un simple contact téléphonique"
     },
     "prochaine_action_date": {
       "type": "string",

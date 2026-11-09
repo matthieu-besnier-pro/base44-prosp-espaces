@@ -354,7 +354,7 @@ function FilterSelect({ label, value, onChange, options, rawOptions }) {
 
 function CompteRow({ compte, onClick, onPhoneFound }) {
   const av = pipelineAvancement(compte.statut || "À qualifier");
-  const barColor = av.special === "Perdu" ? "bg-gd-danger" : av.special === "Hors cible" ? "bg-zinc-300" : "bg-gd-blue";
+  const barColor = av.special === "Perdu" ? "bg-gd-danger" : av.special ? "bg-zinc-300" : "bg-gd-blue";
 
   return (
     <TableRow onClick={onClick} className="cursor-pointer border-gd-mist/30 hover:bg-gd-ice">

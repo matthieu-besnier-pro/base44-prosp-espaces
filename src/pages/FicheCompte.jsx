@@ -438,11 +438,16 @@ function PipelineStepper({ statut }) {
   const av = pipelineAvancement(statut || "À qualifier");
 
   if (av.special) {
+    const libelle = {
+      Perdu: "Opportunité perdue",
+      "Hors cible": "Client hors cible",
+      "Sans numéro": "Pas de numéro de téléphone — à retrouver",
+    }[av.special];
     return (
       <div className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${
         av.special === "Perdu" ? "bg-rose-50 text-gd-danger" : "bg-zinc-100 text-zinc-500"
       }`}>
-        {av.special === "Perdu" ? "Opportunité perdue" : "Client hors cible"}
+        {libelle}
       </div>
     );
   }
