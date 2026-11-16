@@ -39,14 +39,21 @@ async function recupererTousLesComptes(fields, query = {}) {
 }
 
 // La carte n'a vocation à montrer que les clients dont le premier contact a déjà
-// été effectué : on exclut donc "À qualifier". L'exclusion est exprimée en $or sur
-// les AUTRES statuts (plutôt qu'un $ne/$exists sur "À qualifier") pour couvrir aussi
-// les comptes sans statut du tout, traités par défaut comme "À qualifier" ailleurs
-// dans l'app — et pour rester sur des opérateurs dont la fiabilité est éprouvée ici.
-// Ce filtrage côté serveur réduit aussi fortement le volume chargé (et le temps de
-// chargement) par rapport à la récupération de tout le portefeuille.
+// été effectué : on exclut donc "À qualifier" (et les comptes sans statut du tout,
+// traités par défaut comme "À qualifier" ailleurs dans l'app). Un $or sur plusieurs
+// valeurs d'un même champ a été tenté ici puis s'est avéré ne rien retourner sur
+// cette base (carte vide) : on revient donc à une série de requêtes en égalité
+// simple — le seul type de filtre dont la fiabilité est éprouvée dans cette appli —
+// une par statut, lancées en parallèle et fusionnées. Ça reste très inférieur en
+// volume à la récupération de tout le portefeuille.
 const AUTRES_STATUTS = STATUTS_COMPTE.filter((s) => s !== "À qualifier");
-const FILTRE_PREMIER_CONTACT = { $or: AUTRES_STATUTS.map((s) => ({ statut: s })) };
+
+async function recupererComptesParStatuts(fields) {
+  const resultats = await Promise.all(
+    AUTRES_STATUTS.map((s) => recupererTousLesComptes(fields, { statut: s }))
+  );
+  return resultats.flat();
+}
 
 export default function Carte() {
   const navigate = useNavigate();
@@ -59,9 +66,8 @@ export default function Carte() {
   const chargerComptes = async () => {
     setLoading(true);
     try {
-      const tous = await recupererTousLesComptes(
-        ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"],
-        FILTRE_PREMIER_CONTACT
+      const tous = await recupererComptesParStatuts(
+        ["raison_sociale", "ville", "departement", "statut", "latitude", "longitude", "telephone_1", "segment", "potentiel"]
       );
       setComptes(tous.filter((c) => c.latitude && c.longitude));
     } catch (e) { console.error(e); }
@@ -98,9 +104,8 @@ export default function Carte() {
     abortRef.current = false;
     setGeocodage({ actif: true, fait: 0, total: 0, succes: 0 });
     try {
-      const tous = await recupererTousLesComptes(
-        ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel", "latitude", "longitude"],
-        FILTRE_PREMIER_CONTACT
+      const tous = await recupererComptesParStatuts(
+        ["raison_sociale", "ville", "departement", "statut", "adresse", "code_postal", "telephone_1", "segment", "potentiel", "latitude", "longitude"]
       );
       const aTraiter = tous.filter((c) => !c.latitude || !c.longitude);
 
