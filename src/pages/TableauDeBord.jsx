@@ -254,13 +254,7 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
   }
 
   const today = new Date();
-
-  const sousTitresPeriode = {
-    jour: capitalize(format(today, "EEEE d MMMM", { locale: fr })),
-    semaine: `Semaine du ${format(startOfWeek(today, { weekStartsOn: 1 }), "d")} au ${format(endOfWeek(today, { weekStartsOn: 1 }), "d MMMM", { locale: fr })}`,
-    mois: capitalize(format(today, "MMMM yyyy", { locale: fr })),
-    tout: "Depuis le début",
-  };
+  const dateAujourdhui = format(today, "d MMM yyyy", { locale: fr });
 
   // Élan du jour : variation de l'activité totale par rapport au dernier jour ouvré
   // (pas "hier" au sens strict un lundi, où ce serait un dimanche non travaillé). Sert
@@ -316,7 +310,7 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
 
         <CockpitHero elanPct={elanPct} totalJour={totalJour} totalHier={totalHier} jour={activite.jour} hierLabel={hierLabel} />
 
-        <Scoreboard sousTitresPeriode={sousTitresPeriode} activite={activite} periodeEnTete={periodeEnTete} />
+        <Scoreboard dateAujourdhui={dateAujourdhui} activite={activite} periodeEnTete={periodeEnTete} />
 
         <Funnel funnelData={funnelData} maxFunnel={maxFunnel} exitsData={exitsData} rdvPasses={k.rdvPasses} rdvPlanifies={k.rdvPlanifies} aQualifierCount={aQualifierCount} />
 
@@ -460,12 +454,12 @@ function DeltaDirection({ value, prev, hierLabel }) {
 
 // ───────────────────────── SCOREBOARD (Jour / Hebdo / Mois / Tout) ─────────────────────────
 
-function Scoreboard({ sousTitresPeriode, activite, periodeEnTete }) {
+function Scoreboard({ dateAujourdhui, activite, periodeEnTete }) {
   return (
     <section className="rounded-2xl border border-gd-mist/50 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="gd-title text-sm text-gd-blue">Jour · Hebdo · Mois · Tout</h2>
-        <span className="text-xs text-muted-foreground">Chaque période vs la précédente équivalente</span>
+        <span className="text-xs text-muted-foreground">{dateAujourdhui} · vs période précédente</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[620px] border-collapse">
@@ -475,16 +469,13 @@ function Scoreboard({ sousTitresPeriode, activite, periodeEnTete }) {
               {PERIODES.map((p) => {
                 const enTete = p.cle === periodeEnTete;
                 return (
-                  <th key={p.cle} className={`pb-3 text-center ${enTete ? "text-gd-navy" : ""}`}>
+                  <th key={p.cle} className={`pb-2 text-center ${enTete ? "text-gd-navy" : ""}`}>
                     {enTete && (
                       <div className="mb-0.5 flex justify-center">
                         <Trophy className="h-4 w-4 fill-gd-yellow text-gd-yellow" />
                       </div>
                     )}
                     <div className="gd-title text-xs">{p.label}</div>
-                    <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
-                      {sousTitresPeriode[p.cle]}
-                    </div>
                   </th>
                 );
               })}
