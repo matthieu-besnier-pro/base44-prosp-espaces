@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  subDays, subWeeks, subMonths, addMonths, format,
+  subDays, subWeeks, subMonths, addMonths, format, isWeekend, isSameDay,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -32,6 +32,14 @@ const METRIQUES = [
 ];
 
 const totalPeriode = (d) => (d?.appels || 0) + (d?.visites || 0) + (d?.rdvPris || 0) + (d?.contactes || 0);
+
+// Le dernier jour ouvré avant une date donnée : comparer un lundi à son dimanche (où
+// l'équipe ne travaille pas) gonflerait artificiellement l'élan du jour.
+function jourOuvrePrecedent(date) {
+  let d = subDays(date, 1);
+  while (isWeekend(d)) d = subDays(d, 1);
+  return d;
+}
 
 // Depuis que "Rapport oral" enregistre un RapportContact (et non plus une Interaction),
 // les appels/visites dictés via ce chemin n'étaient plus comptés par compterActivite
@@ -98,7 +106,7 @@ export default function TableauDeBord() {
         const jourFinIso = format(jourFin, "yyyy-MM-dd'T'HH:mm:ss");
         const jourDate = format(today, "yyyy-MM-dd");
 
-        const hier = subDays(today, 1);
+        const hier = jourOuvrePrecedent(today);
         const hierDebutIso = format(startOfDay(hier), "yyyy-MM-dd'T'HH:mm:ss");
         const hierFinIso = format(endOfDay(hier), "yyyy-MM-dd'T'HH:mm:ss");
         const hierDate = format(hier, "yyyy-MM-dd");
@@ -254,11 +262,14 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
     tout: "Depuis le début",
   };
 
-  // Élan du jour : variation de l'activité totale par rapport à hier. Sert de fil rouge
-  // au cadran principal du cockpit (voir CockpitHero ci-dessous).
+  // Élan du jour : variation de l'activité totale par rapport au dernier jour ouvré
+  // (pas "hier" au sens strict un lundi, où ce serait un dimanche non travaillé). Sert
+  // de fil rouge au cadran principal du cockpit (voir CockpitHero ci-dessous).
   const totalJour = totalPeriode(activite.jour);
   const totalHier = activite.jour.prev ? totalPeriode(activite.jour.prev) : 0;
   const elanPct = totalHier > 0 ? Math.round(((totalJour - totalHier) / totalHier) * 100) : (totalJour > 0 ? 100 : 0);
+  const hierJour = jourOuvrePrecedent(today);
+  const hierLabel = isSameDay(hierJour, subDays(today, 1)) ? "hier" : capitalize(format(hierJour, "EEEE", { locale: fr }));
 
   // Période "en tête" du scoreboard : celle dont l'activité totale progresse le plus
   // par rapport à la période précédente équivalente ("Tout" n'a pas de précédent, donc
@@ -303,7 +314,7 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
           </div>
         )}
 
-        <CockpitHero elanPct={elanPct} totalJour={totalJour} totalHier={totalHier} jour={activite.jour} />
+        <CockpitHero elanPct={elanPct} totalJour={totalJour} totalHier={totalHier} jour={activite.jour} hierLabel={hierLabel} />
 
         <Scoreboard sousTitresPeriode={sousTitresPeriode} activite={activite} periodeEnTete={periodeEnTete} />
 
@@ -342,13 +353,30 @@ function DeltaBadge({ current, prev }) {
 
 // ───────────────────────── COCKPIT (hero : élan du jour + cadrans) ─────────────────────────
 
-function CockpitHero({ elanPct, totalJour, totalHier, jour }) {
+// Le métier d'une commerciale varie beaucoup d'un jour à l'autre (phoning pur,
+// tournée terrain, relances...) : attendre que les 4 compteurs soient non nuls tous
+// les jours n'a pas de sens, et une journée 100% phoning n'a pas à paraître "vide"
+// parce que Visites/RDV sont à 0. On qualifie donc la journée selon ce qui a
+// vraiment été fait, pour valoriser le travail réel plutôt que de le comparer à un
+// gabarit unique.
+function qualifierJournee(jour) {
+  const appels = jour.appels || 0;
+  const terrain = (jour.visites || 0) + (jour.rdvPris || 0);
+  const contactes = jour.contactes || 0;
+  if (appels === 0 && terrain === 0 && contactes === 0) return null;
+  if (appels > 0 && terrain === 0) return { label: "Journée phoning", icon: Phone };
+  if (appels === 0 && terrain > 0) return { label: "Journée terrain", icon: Video };
+  return { label: "Journée mixte", icon: Sparkles };
+}
+
+function CockpitHero({ elanPct, totalJour, totalHier, jour, hierLabel }) {
   const ringFill = Math.min(100, Math.max(0, 50 + elanPct));
   const size = 150, stroke = 12;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - ringFill / 100);
   const humeur = elanPct > 0 ? "ça pousse" : elanPct < 0 ? "en retrait — de quoi se relancer" : "rythme stable";
+  const journee = qualifierJournee(jour);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-gd-navy via-gd-blue to-[#04142B] p-6 text-white shadow-xl">
@@ -368,17 +396,22 @@ function CockpitHero({ elanPct, totalJour, totalHier, jour }) {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="gd-tabular text-3xl font-extrabold">{elanPct >= 0 ? "+" : ""}{elanPct}%</span>
-              <span className="mt-1 text-[10px] uppercase tracking-wider text-white/60">vs hier</span>
+              <span className="mt-1 text-[10px] uppercase tracking-wider text-white/60">vs {hierLabel}</span>
             </div>
           </div>
+          {journee && (
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+              <journee.icon className="h-2.5 w-2.5" /> {journee.label}
+            </span>
+          )}
           <p className="max-w-[190px] text-xs text-white/70">
-            <b className="text-white">{totalJour} action{totalJour > 1 ? "s" : ""}</b> aujourd'hui contre {totalHier} hier — {humeur}.
+            <b className="text-white">{totalJour} action{totalJour > 1 ? "s" : ""}</b> aujourd'hui contre {totalHier} {hierLabel} — {humeur}.
           </p>
         </div>
 
         <div className="grid grid-cols-2 content-center gap-3 sm:grid-cols-4">
           {METRIQUES.map((m) => (
-            <Instrument key={m.cle} metrique={m} value={jour[m.cle]} prev={jour.prev?.[m.cle]} />
+            <Instrument key={m.cle} metrique={m} value={jour[m.cle]} prev={jour.prev?.[m.cle]} hierLabel={hierLabel} />
           ))}
         </div>
       </div>
@@ -386,18 +419,20 @@ function CockpitHero({ elanPct, totalJour, totalHier, jour }) {
   );
 }
 
-function Instrument({ metrique, value, prev }) {
+function Instrument({ metrique, value, prev, hierLabel }) {
   const Icon = metrique.icon;
+  const v = value || 0;
+  const vide = v === 0; // pas forcément un manque : certaines journées ne mobilisent pas ce type d'action
   const nbTicks = 8;
-  const ticksOn = Math.min(nbTicks, Math.round(Math.min(1, (value || 0) / metrique.echelleJour) * nbTicks) || (value > 0 ? 1 : 0));
+  const ticksOn = Math.min(nbTicks, Math.round(Math.min(1, v / metrique.echelleJour) * nbTicks) || (v > 0 ? 1 : 0));
   return (
-    <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[.08] to-transparent p-3.5">
+    <div className={`rounded-xl border border-white/10 bg-gradient-to-b from-white/[.08] to-transparent p-3.5 ${vide ? "opacity-55" : ""}`}>
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/60">
         <Icon className="h-3.5 w-3.5 text-gd-yellow" />
         {metrique.label}
       </div>
-      <div className="gd-tabular mt-1.5 text-2xl font-extrabold">{value ?? 0}</div>
-      <DeltaDirection value={value} prev={prev} />
+      <div className="gd-tabular mt-1.5 text-2xl font-extrabold">{v}</div>
+      <DeltaDirection value={value} prev={prev} hierLabel={hierLabel} />
       <div className="mt-2.5 flex gap-[3px]">
         {Array.from({ length: nbTicks }).map((_, i) => (
           <span key={i} className={`h-1 flex-1 rounded-sm ${i < ticksOn ? "bg-gd-yellow" : "bg-white/15"}`} />
@@ -407,16 +442,18 @@ function Instrument({ metrique, value, prev }) {
   );
 }
 
-function DeltaDirection({ value, prev }) {
+function DeltaDirection({ value, prev, hierLabel }) {
   if (prev == null) return null;
-  const diff = (value || 0) - (prev || 0);
+  const v = value || 0, p = prev || 0;
+  if (v === 0 && p === 0) return null; // rien ni d'un côté ni de l'autre : pas de comparaison à afficher
+  const diff = v - p;
   const cls = diff > 0 ? "text-emerald-300" : diff < 0 ? "text-rose-300" : "text-white/50";
   return (
     <div className={`mt-0.5 flex items-center gap-1 text-[11px] font-semibold ${cls}`}>
       {diff !== 0 && (diff > 0
         ? <ArrowUpRight className="h-3 w-3" />
         : <ArrowDownRight className="h-3 w-3" />)}
-      {diff === 0 ? "stable" : `${diff > 0 ? "+" : ""}${diff} vs hier`}
+      {diff === 0 ? "stable" : `${diff > 0 ? "+" : ""}${diff} vs ${hierLabel}`}
     </div>
   );
 }
