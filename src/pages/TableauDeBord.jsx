@@ -143,6 +143,7 @@ export default function TableauDeBord() {
           jour, hierStats, semaine, semainePrev, mois, moisPrev, tout,
           totalComptes, clientsCount, potentielACount, scoreEleveCount, jamaisContactes,
           equipementsARenouveler, tachesRetard, statutCounts, sansStatut,
+          visitesPassees, demosPassees, visitesFutures, demosFutures,
         ] = await Promise.all([
           compterActivite(jourDebutIso, jourFinIso, jourDate, jourDate),
           compterActivite(hierDebutIso, hierFinIso, hierDate, hierDate),
@@ -160,11 +161,22 @@ export default function TableauDeBord() {
           base44.entities.Tache.count({ statut: "À faire", echeance: { $lt: jourDate } }),
           Promise.all(STATUTS_COMPTE.map((s) => base44.entities.Compte.count({ statut: s }))),
           base44.entities.Compte.count({ statut: { $exists: false } }),
+          // RDV = tâches de type Visite/Démo (celles créées via le bouton "RDV" de la
+          // fiche client) : on distingue celles dont la date est déjà passée sans avoir
+          // été traitées (à relancer) de celles qui restent à venir. Deux requêtes par
+          // type plutôt qu'un $or sur le même champ, qui s'est avéré ne rien renvoyer
+          // sur cette base (cf. bug constaté sur la carte).
+          base44.entities.Tache.count({ type: "Visite", statut: "À faire", echeance: { $lt: jourDate } }),
+          base44.entities.Tache.count({ type: "Démo", statut: "À faire", echeance: { $lt: jourDate } }),
+          base44.entities.Tache.count({ type: "Visite", statut: "À faire", echeance: { $gte: jourDate } }),
+          base44.entities.Tache.count({ type: "Démo", statut: "À faire", echeance: { $gte: jourDate } }),
         ]);
 
         setK({
           totalComptes, clientsCount, potentielACount, scoreEleveCount,
           jamaisContactes, equipementsARenouveler, tachesRetard,
+          rdvPasses: visitesPassees + demosPassees,
+          rdvPlanifies: visitesFutures + demosFutures,
         });
 
         setActivite({
@@ -262,7 +274,7 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
   }
 
   const funnelData = PIPELINE_STEPS.map((s) => ({ statut: s, count: repartition.find((r) => r.statut === s)?.count || 0 }));
-  const maxFunnel = Math.max(1, ...funnelData.map((f) => f.count));
+  const maxFunnel = Math.max(1, ...funnelData.map((f) => f.count), k.rdvPasses + k.rdvPlanifies);
   const exitsData = repartition.filter((r) => !PIPELINE_STEPS.includes(r.statut));
 
   return (
@@ -290,7 +302,7 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
 
         <Scoreboard sousTitresPeriode={sousTitresPeriode} activite={activite} periodeEnTete={periodeEnTete} />
 
-        <Funnel funnelData={funnelData} maxFunnel={maxFunnel} exitsData={exitsData} />
+        <Funnel funnelData={funnelData} maxFunnel={maxFunnel} exitsData={exitsData} rdvPasses={k.rdvPasses} rdvPlanifies={k.rdvPlanifies} />
 
         <PortfolioStrip k={k} />
       </div>
@@ -465,7 +477,7 @@ function Scoreboard({ sousTitresPeriode, activite, periodeEnTete }) {
 
 // ───────────────────────── PIPELINE (entonnoir + sorties) ─────────────────────────
 
-function Funnel({ funnelData, maxFunnel, exitsData }) {
+function Funnel({ funnelData, maxFunnel, exitsData, rdvPasses, rdvPlanifies }) {
   return (
     <section className="rounded-2xl border border-gd-mist/50 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
@@ -475,6 +487,30 @@ function Funnel({ funnelData, maxFunnel, exitsData }) {
       <div className="grid gap-5 lg:grid-cols-[1fr_200px]">
         <div className="flex flex-col gap-2">
           {funnelData.map((f) => {
+            // "RDV planifié" est remplacé par une barre bicolore basée sur les tâches
+            // de rendez-vous (Visite/Démo) plutôt que sur le simple compte de statut :
+            // ça distingue les RDV dont la date est déjà passée sans suite (à relancer)
+            // de ceux réellement à venir.
+            if (f.statut === "RDV planifié") {
+              const pPasses = Math.round((rdvPasses / maxFunnel) * 100);
+              const pPlanifies = Math.round((rdvPlanifies / maxFunnel) * 100);
+              return (
+                <div key="rdv" className="flex flex-col gap-1">
+                  <div className="grid grid-cols-[120px_1fr_52px] items-center gap-2.5">
+                    <span className="truncate text-right text-xs text-muted-foreground">RDV</span>
+                    <div className="flex h-6 overflow-hidden rounded-md bg-gd-ice">
+                      <div className="h-full bg-gd-warning" style={{ width: `${pPasses}%` }} title={`${rdvPasses} RDV passés`} />
+                      <div className="h-full bg-violet-500" style={{ width: `${pPlanifies}%` }} title={`${rdvPlanifies} RDV planifiés`} />
+                    </div>
+                    <span className="gd-tabular text-right text-xs font-bold">{rdvPasses + rdvPlanifies}</span>
+                  </div>
+                  <div className="flex gap-3 pl-[130px] text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-gd-warning" /> {rdvPasses} passés</span>
+                    <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-violet-500" /> {rdvPlanifies} planifiés</span>
+                  </div>
+                </div>
+              );
+            }
             const c = STATUT_COULEUR[f.statut] || STATUT_COULEUR["À qualifier"];
             const p = Math.round((f.count / maxFunnel) * 100);
             return (
