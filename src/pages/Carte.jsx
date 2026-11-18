@@ -4,7 +4,7 @@ import PageTitle from "@/components/PageTitle";
 import { STATUT_COULEUR, STATUTS_COMPTE } from "@/lib/crm-constants";
 import { geocoderAdresse } from "@/lib/crm-helpers";
 import { toast } from "@/components/ui/use-toast";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Eye, EyeOff, Navigation, X } from "lucide-react";
 
@@ -17,6 +17,25 @@ function dotColorHex(statut) {
   const key = (STATUT_COULEUR[statut] || STATUT_COULEUR["À qualifier"]).dot
     .replace("bg-", "").replace(/-\d+$/, "");
   return `#${DOT_HEX[key] || DOT_HEX.slate}`;
+}
+
+// Leaflet calcule la taille de la carte au moment où elle s'initialise ; si le
+// conteneur n'a pas encore sa largeur définitive à cet instant (mise en page grid/flex
+// qui se stabilise juste après le premier rendu), la carte ne charge que les tuiles
+// pour cette taille erronée et affiche des tuiles tronquées/mal alignées. On force un
+// recalcul juste après le montage, et à chaque redimensionnement de la fenêtre.
+function RecalculerTaille() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 150);
+    const onResize = () => map.invalidateSize();
+    window.addEventListener("resize", onResize);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [map]);
+  return null;
 }
 
 // Le filtre `{ latitude: { $exists: ... } }` s'est avéré ne retourner aucun
@@ -178,6 +197,7 @@ export default function Carte() {
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
             <div className="h-[60vh] overflow-hidden rounded-xl border border-gd-mist/50 lg:h-[70vh]">
               <MapContainer center={center} zoom={8} className="h-full w-full">
+                <RecalculerTaille />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
                 {visibles.map((c) => (
                   <CircleMarker key={c.id} center={[c.latitude, c.longitude]} radius={6} pathOptions={{ color: dotColorHex(c.statut), fillOpacity: 0.8 }}>
