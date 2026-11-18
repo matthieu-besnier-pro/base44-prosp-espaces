@@ -2,7 +2,6 @@
 
 export const STATUTS_COMPTE = [
   "À qualifier",
-  "Prospect",
   "Contacté",
   "RDV planifié",
   "Offre en cours",
@@ -14,7 +13,6 @@ export const STATUTS_COMPTE = [
 
 export const STATUT_COULEUR = {
   "À qualifier": { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-400" },
-  Prospect: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" },
   Contacté: { bg: "bg-cyan-100", text: "text-cyan-700", dot: "bg-cyan-500" },
   "RDV planifié": { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" },
   "Offre en cours": { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
@@ -27,7 +25,6 @@ export const STATUT_COULEUR = {
 // Étapes principales du cycle de prospection (hors issues terminales Perdu/Hors cible)
 export const PIPELINE_STEPS = [
   "À qualifier",
-  "Prospect",
   "Contacté",
   "RDV planifié",
   "Offre en cours",

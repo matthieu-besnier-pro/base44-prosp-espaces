@@ -78,7 +78,6 @@
       "description": "Statut commercial",
       "enum": [
         "\u00c0 qualifier",
-        "Prospect",
         "Contact\u00e9",
         "RDV planifi\u00e9",
         "Offre en cours",
