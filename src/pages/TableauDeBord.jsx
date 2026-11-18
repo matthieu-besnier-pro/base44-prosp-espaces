@@ -4,7 +4,7 @@ import PageTitle from "@/components/PageTitle";
 import { STATUTS_COMPTE, STATUT_COULEUR, PIPELINE_STEPS } from "@/lib/crm-constants";
 import {
   AlertTriangle, CalendarCheck, PhoneOff, Wrench, Phone, Video, Users,
-  Sparkles, ArrowUpRight, ArrowDownRight, Minus, Trophy,
+  Sparkles, ArrowUpRight, ArrowDownRight, Trophy,
 } from "lucide-react";
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
@@ -324,23 +324,18 @@ function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-function DeltaBadge({ current, prev }) {
+// Delta compact, affiché à même la ligne du chiffre plutôt que sur une ligne à part
+// (badge avec pastille colorée) : la même info, mais un tableau deux fois moins haut
+// à parcourir. Rien n'est affiché quand il n'y a pas de variation — un "stable" répété
+// dans 16 cellules n'apporte rien et alourdit la lecture.
+function DeltaInline({ current, prev }) {
   if (prev == null) return null;
   const diff = (current || 0) - (prev || 0);
-  if (diff === 0) {
-    return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
-        <Minus className="h-2.5 w-2.5" /> stable
-      </span>
-    );
-  }
+  if (diff === 0) return null;
   const positif = diff > 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-      positif ? "bg-gd-success/15 text-gd-success" : "bg-gd-danger/10 text-gd-danger"
-    }`}>
-      {positif ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
-      {positif ? "+" : ""}{diff}
+    <span className={`ml-1 text-[11px] font-bold ${positif ? "text-gd-success" : "text-gd-danger"}`}>
+      {positif ? "↑" : "↓"}{Math.abs(diff)}
     </span>
   );
 }
@@ -483,19 +478,17 @@ function Scoreboard({ dateAujourdhui, activite, periodeEnTete }) {
           </thead>
           <tbody>
             {METRIQUES.map((m) => (
-              <tr key={m.cle} className="border-t border-gd-mist/30">
-                <td className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+              <tr key={m.cle} className="border-t border-gd-mist/20">
+                <td className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
                   <m.icon className="h-3.5 w-3.5 shrink-0 text-gd-blue" /> {m.label}
                 </td>
                 {PERIODES.map((p) => {
                   const d = activite[p.cle];
                   const enTete = p.cle === periodeEnTete;
                   return (
-                    <td key={p.cle} className={`py-3 text-center ${enTete ? "rounded-lg bg-gd-yellow/10" : ""}`}>
-                      <div className="gd-tabular text-lg font-extrabold text-foreground">{d[m.cle] ?? 0}</div>
-                      <div className="mt-0.5 flex justify-center">
-                        <DeltaBadge current={d[m.cle]} prev={d.prev?.[m.cle]} />
-                      </div>
+                    <td key={p.cle} className={`py-2 text-center ${enTete ? "rounded-lg bg-gd-yellow/10" : ""}`}>
+                      <span className="gd-tabular text-base font-extrabold text-foreground">{d[m.cle] ?? 0}</span>
+                      <DeltaInline current={d[m.cle]} prev={d.prev?.[m.cle]} />
                     </td>
                   );
                 })}
