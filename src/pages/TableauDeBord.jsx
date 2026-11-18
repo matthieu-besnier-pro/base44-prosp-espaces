@@ -33,14 +33,51 @@ const METRIQUES = [
 
 const totalPeriode = (d) => (d?.appels || 0) + (d?.visites || 0) + (d?.rdvPris || 0) + (d?.contactes || 0);
 
+// Depuis que "Rapport oral" enregistre un RapportContact (et non plus une Interaction),
+// les appels/visites dictés via ce chemin n'étaient plus comptés par compterActivite
+// (qui n'interrogeait que Interaction) : l'activité du jour pouvait ainsi rester à 0
+// pour un commercial n'utilisant que le rapport oral. On récupère donc aussi les
+// RapportContact de la période et on les ventile par type_contact : "Appel" compte
+// comme un appel, tout le reste (Visite/Salon/Démo/Rencontre fortuite — les types
+// "physiques" déjà regroupés ainsi dans la fiche client) compte comme une visite.
+// Pagination manuelle plutôt qu'un simple .count() par type_contact : un $or sur
+// plusieurs valeurs d'un même champ s'est avéré ne rien retourner sur cette base
+// (cf. le bug constaté sur la carte), donc on évite ce type de filtre ici aussi.
+async function compterRapportsParPeriode(debutIso, finIso) {
+  let cursor;
+  let appels = 0, visites = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const page = await base44.entities.RapportContact.filter(
+      { date_heure: { $gte: debutIso, $lte: finIso } },
+      { limit: 200, cursor, fields: ["type_contact"] }
+    );
+    const items = page.items || page;
+    for (const r of items) {
+      if (r.type_contact === "Appel") appels++; else visites++;
+    }
+    if (!page.has_more || !page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+  return { appels, visites };
+}
+
 // Compte les 4 indicateurs d'activité pour une fenêtre temporelle donnée.
-const compterActivite = (debutIso, finIso, debutDate, finDate) =>
-  Promise.all([
+const compterActivite = async (debutIso, finIso, debutDate, finDate) => {
+  const [appelsInteraction, visitesInteraction, rdvPris, contactes, rapports] = await Promise.all([
     base44.entities.Interaction.count({ type: "Appel", date_heure: { $gte: debutIso, $lte: finIso } }),
     base44.entities.Interaction.count({ type: "Visite", date_heure: { $gte: debutIso, $lte: finIso } }),
     base44.entities.Interaction.count({ resultat: "RDV pris", date_heure: { $gte: debutIso, $lte: finIso } }),
     base44.entities.Compte.count({ date_dernier_contact: { $gte: debutDate, $lte: finDate } }),
-  ]).then(([appels, visites, rdvPris, contactes]) => ({ appels, visites, rdvPris, contactes }));
+    compterRapportsParPeriode(debutIso, finIso),
+  ]);
+  return {
+    appels: appelsInteraction + rapports.appels,
+    visites: visitesInteraction + rapports.visites,
+    rdvPris,
+    contactes,
+  };
+};
 
 export default function TableauDeBord() {
   const [k, setK] = useState(null);

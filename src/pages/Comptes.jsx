@@ -10,7 +10,7 @@ import { exportCsv, deptLabel, rechercherTelephoneIA, statutApresNumeroTrouve } 
 import { toast } from "@/components/ui/use-toast";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
-  Search, SlidersHorizontal, Download, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles, FileText, AlertTriangle,
+  Search, SlidersHorizontal, Download, Archive, MapPin, Phone, Building2, X, ChevronDown, ChevronRight, Sparkles, FileText, AlertTriangle,
 } from "lucide-react";
 
 const PAGE_SIZE = 50;
@@ -28,6 +28,7 @@ export default function Comptes() {
   const [total, setTotal] = useState(0);
   const [rechercheTel, setRechercheTel] = useState({ actif: false, fait: 0, total: 0, succes: 0 });
   const [rapportsParCompte, setRapportsParCompte] = useState({});
+  const [exportBusy, setExportBusy] = useState(null); // null | "filtre" | "sauvegarde"
   const abortTelRef = useRef(false);
   const requestIdRef = useRef(0);
 
@@ -262,19 +263,106 @@ export default function Comptes() {
     setRechercheTel((g) => ({ ...g, actif: false }));
   };
 
-  const handleExport = () => {
-    exportCsv(comptes, [
-      { label: "Raison sociale", get: (r) => r.raison_sociale },
-      { label: "Famille", get: (r) => r.famille },
-      { label: "Segment", get: (r) => r.segment },
-      { label: "Département", get: (r) => deptLabel(r.departement) },
-      { label: "Ville", get: (r) => r.ville },
-      { label: "Téléphone", get: (r) => r.telephone_1 },
-      { label: "Email", get: (r) => r.email },
-      { label: "Statut", get: (r) => r.statut },
-      { label: "Potentiel", get: (r) => r.potentiel },
-      { label: "Score", get: (r) => r.score },
-    ], "clients.csv");
+  // Récupère TOUS les comptes correspondant à une requête (pas seulement la page
+  // actuellement chargée en mémoire) : indispensable pour un export fiable, qu'il
+  // porte sur le filtre courant ou sur tout le portefeuille.
+  const recupererTousComptesPagine = async (query, fields) => {
+    let cursor;
+    let tous = [];
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const page = await base44.entities.Compte.filter(query, { limit: 200, cursor, fields });
+      const items = page.items || page;
+      tous = tous.concat(items);
+      if (!page.has_more || !page.next_cursor) break;
+      cursor = page.next_cursor;
+    }
+    return tous;
+  };
+
+  const dateFichier = () => new Date().toISOString().split("T")[0];
+
+  const handleExport = async () => {
+    setExportBusy("filtre");
+    try {
+      const tous = await recupererTousComptesPagine(buildQuery(), [
+        "raison_sociale", "famille", "segment", "departement", "ville",
+        "telephone_1", "email", "statut", "potentiel", "score",
+      ]);
+      exportCsv(tous, [
+        { label: "Raison sociale", get: (r) => r.raison_sociale },
+        { label: "Famille", get: (r) => r.famille },
+        { label: "Segment", get: (r) => r.segment },
+        { label: "Département", get: (r) => deptLabel(r.departement) },
+        { label: "Ville", get: (r) => r.ville },
+        { label: "Téléphone", get: (r) => r.telephone_1 },
+        { label: "Email", get: (r) => r.email },
+        { label: "Statut", get: (r) => r.statut },
+        { label: "Potentiel", get: (r) => r.potentiel },
+        { label: "Score", get: (r) => r.score },
+      ], `clients_${dateFichier()}.csv`);
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "L'export a échoué.", variant: "destructive" });
+    }
+    setExportBusy(null);
+  };
+
+  // Sauvegarde complète : ignore les filtres et exporte tout le portefeuille avec tous
+  // les champs, pour pouvoir restaurer ou vérifier les données en cas de problème.
+  const handleSauvegarde = async () => {
+    setExportBusy("sauvegarde");
+    try {
+      const tous = await recupererTousComptesPagine({}, [
+        "raison_sociale", "siren", "famille", "segment", "activite_detail",
+        "adresse", "code_postal", "ville", "departement", "latitude", "longitude",
+        "telephone_1", "telephone_2", "email", "site_web", "statut", "potentiel",
+        "score", "taille", "concession_rattachement", "fournisseur_actuel",
+        "mois_vote_budget", "date_dernier_contact", "date_dernier_rdv_physique",
+        "prochaine_action_date", "tags", "consentement_rgpd", "source",
+        "resume_ia", "angle_approche_ia", "signaux_ia", "date_maj_ia",
+      ]);
+      exportCsv(tous, [
+        { label: "ID", get: (r) => r.id },
+        { label: "Raison sociale", get: (r) => r.raison_sociale },
+        { label: "SIREN", get: (r) => r.siren },
+        { label: "Famille", get: (r) => r.famille },
+        { label: "Segment", get: (r) => r.segment },
+        { label: "Activité (détail)", get: (r) => r.activite_detail },
+        { label: "Adresse", get: (r) => r.adresse },
+        { label: "Code postal", get: (r) => r.code_postal },
+        { label: "Ville", get: (r) => r.ville },
+        { label: "Département", get: (r) => deptLabel(r.departement) },
+        { label: "Latitude", get: (r) => r.latitude },
+        { label: "Longitude", get: (r) => r.longitude },
+        { label: "Téléphone 1", get: (r) => r.telephone_1 },
+        { label: "Téléphone 2", get: (r) => r.telephone_2 },
+        { label: "Email", get: (r) => r.email },
+        { label: "Site web", get: (r) => r.site_web },
+        { label: "Statut", get: (r) => r.statut },
+        { label: "Potentiel", get: (r) => r.potentiel },
+        { label: "Score", get: (r) => r.score },
+        { label: "Taille", get: (r) => r.taille },
+        { label: "Concession", get: (r) => r.concession_rattachement },
+        { label: "Fournisseur actuel", get: (r) => r.fournisseur_actuel },
+        { label: "Mois de vote du budget", get: (r) => r.mois_vote_budget },
+        { label: "Dernier contact", get: (r) => r.date_dernier_contact },
+        { label: "Dernier RDV physique", get: (r) => r.date_dernier_rdv_physique },
+        { label: "Prochaine action", get: (r) => r.prochaine_action_date },
+        { label: "Tags", get: (r) => (r.tags || []).join(", ") },
+        { label: "Consentement RGPD", get: (r) => r.consentement_rgpd },
+        { label: "Source", get: (r) => r.source },
+        { label: "Résumé IA", get: (r) => r.resume_ia },
+        { label: "Angle d'approche IA", get: (r) => r.angle_approche_ia },
+        { label: "Signaux IA", get: (r) => (r.signaux_ia || []).join(", ") },
+        { label: "Dernière MAJ IA", get: (r) => r.date_maj_ia },
+      ], `clients_sauvegarde_complete_${dateFichier()}.csv`);
+      toast({ title: "Sauvegarde exportée", description: `${tous.length} client${tous.length > 1 ? "s" : ""} inclus, tous champs.` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "La sauvegarde a échoué.", variant: "destructive" });
+    }
+    setExportBusy(null);
   };
 
   return (
@@ -323,10 +411,21 @@ export default function Comptes() {
           </div>
           <button
             onClick={handleExport}
-            className="flex h-11 items-center gap-2 rounded-lg border border-gd-mist/60 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-gd-ice"
+            disabled={!!exportBusy}
+            title="Exporte les clients correspondant aux filtres actuels"
+            className="flex h-11 items-center gap-2 rounded-lg border border-gd-mist/60 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">CSV</span>
+            <span className="hidden sm:inline">{exportBusy === "filtre" ? "Export…" : "CSV"}</span>
+          </button>
+          <button
+            onClick={handleSauvegarde}
+            disabled={!!exportBusy}
+            title="Exporte tout le portefeuille, tous champs — à garder de côté en cas de problème sur les données"
+            className="flex h-11 items-center gap-2 rounded-lg border border-gd-mist/60 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-gd-ice disabled:opacity-50"
+          >
+            <Archive className="h-4 w-4" />
+            <span className="hidden sm:inline">{exportBusy === "sauvegarde" ? "Sauvegarde…" : "Sauvegarde"}</span>
           </button>
         </div>
 
