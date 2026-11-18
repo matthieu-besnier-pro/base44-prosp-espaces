@@ -273,7 +273,12 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
     if (deltaPct > meilleurDelta) { meilleurDelta = deltaPct; periodeEnTete = cle; }
   }
 
-  const funnelData = PIPELINE_STEPS.map((s) => ({ statut: s, count: repartition.find((r) => r.statut === s)?.count || 0 }));
+  // "À qualifier" est quasi toujours le plus gros volume (c'est le statut par défaut,
+  // pas encore engagé) : le laisser dans l'échelle des barres écrase visuellement la
+  // progression des autres étapes. Il est donc sorti du graphique et affiché à part,
+  // en simple chiffre.
+  const aQualifierCount = repartition.find((r) => r.statut === "À qualifier")?.count || 0;
+  const funnelData = PIPELINE_STEPS.filter((s) => s !== "À qualifier").map((s) => ({ statut: s, count: repartition.find((r) => r.statut === s)?.count || 0 }));
   const maxFunnel = Math.max(1, ...funnelData.map((f) => f.count), k.rdvPasses + k.rdvPlanifies);
   const exitsData = repartition.filter((r) => !PIPELINE_STEPS.includes(r.statut));
 
@@ -302,7 +307,7 @@ Rédige une analyse courte (2 à 3 phrases maximum), en français, factuelle et 
 
         <Scoreboard sousTitresPeriode={sousTitresPeriode} activite={activite} periodeEnTete={periodeEnTete} />
 
-        <Funnel funnelData={funnelData} maxFunnel={maxFunnel} exitsData={exitsData} rdvPasses={k.rdvPasses} rdvPlanifies={k.rdvPlanifies} />
+        <Funnel funnelData={funnelData} maxFunnel={maxFunnel} exitsData={exitsData} rdvPasses={k.rdvPasses} rdvPlanifies={k.rdvPlanifies} aQualifierCount={aQualifierCount} />
 
         <PortfolioStrip k={k} />
       </div>
@@ -477,12 +482,17 @@ function Scoreboard({ sousTitresPeriode, activite, periodeEnTete }) {
 
 // ───────────────────────── PIPELINE (entonnoir + sorties) ─────────────────────────
 
-function Funnel({ funnelData, maxFunnel, exitsData, rdvPasses, rdvPlanifies }) {
+function Funnel({ funnelData, maxFunnel, exitsData, rdvPasses, rdvPlanifies, aQualifierCount }) {
   return (
     <section className="rounded-2xl border border-gd-mist/50 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="gd-title text-sm text-gd-blue">Pipeline de prospection</h2>
-        <span className="text-xs text-muted-foreground">Répartition du portefeuille, étape par étape</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">Répartition du portefeuille, étape par étape</span>
+          <span className="gd-tabular inline-flex items-center gap-1.5 rounded-full bg-gd-ice px-2.5 py-1 text-xs font-bold text-slate-500" title="Non inclus dans l'échelle des barres ci-dessous, pour ne pas écraser la progression des autres étapes">
+            {aQualifierCount} à qualifier
+          </span>
+        </div>
       </div>
       <div className="grid gap-5 lg:grid-cols-[1fr_200px]">
         <div className="flex flex-col gap-2">
